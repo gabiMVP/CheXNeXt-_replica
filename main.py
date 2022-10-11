@@ -41,6 +41,9 @@ def main():
     # df = pd.read_csv('./metadata/BBox_List_2017 (1).csv', index_col=0)
     # i = os.path.exists('./metadata/BBox_List_2017 (1).csv');
     # before we train with the full dataset we train with a smaller dataset for development purposes , this will be all dataset with Bounding box + 1001 examples without bounding box
+    #I took 185 of the data entries from BBOX list and put them in a new file to create a test BBOX list
+
+    #Training data
     with open('./metadata/BBox_List_2017 (1).csv') as csvfile:
         csvReader = csv.reader(csvfile, delimiter=',')
         next(csvReader)
@@ -55,8 +58,16 @@ def main():
         for row in csvReader:
             trainingList.append(row[0])
             trainigLabels.append(util.convertfromNameOfDiseazeToOneHot(row[1]))
-    with open('./metadata/testgabi200.csv') as csvfile2:
+
+    #Test data
+    with open('./metadata/BBox_List_2017_TEST.csv') as csvfile2:
         csvReader = csv.reader(csvfile2, delimiter=',')
+        for row in csvReader:
+            testList.append(row[0])
+            testLabels.append(util.convertfromNameOfDiseazeToOneHot(row[1]))
+            testingBbox.append(np.array(row[2:]))
+    with open('./metadata/testgabi200.csv') as csvfile3:
+        csvReader = csv.reader(csvfile3, delimiter=',')
         for row in csvReader:
             testList.append(row[0])
             testLabels.append(util.convertfromNameOfDiseazeToOneHot(row[1]))
@@ -71,6 +82,13 @@ def main():
 
     #Now put all the data in dataset so the model can load it as input
     print("TOP")
+    train_images_np = tf.convert_to_tensor(np.array(train_images_np))
+    test_images_np= tf.convert_to_tensor(np.array(test_images_np))
+    # trainigLabels= tf.convert_to_tensor(np.array(trainigLabels))
+    # testLabels= tf.convert_to_tensor(np.array(testLabels))
+    trainingDataset = util.getDataset(train_images_np,trainigLabels,trainingBbox)
+    testDataset = util.getDataset(test_images_np, testLabels, testingBbox)
+
 
 
 

@@ -10,6 +10,7 @@ import numpy as np
 import imageio
 from six import BytesIO
 from PIL import Image, ImageDraw, ImageFont
+BATCH_SIZE=32
 
 import glob
 
@@ -26,9 +27,9 @@ def convertfromNameOfDiseazeToOneHot( rowDataset):
         try:
             indexes.append(CLASS_NAMES.index(x))
             onehot = tf.reduce_max(tf.one_hot(indexes, N_CLASSES, dtype=tf.int32), axis=0)
-            return onehot.numpy();
+            return onehot
         except ValueError:
-            return np.zeros(15);
+            return tf.convert_to_tensor(np.zeros(14), dtype=tf.int32)
 
 
 
@@ -55,11 +56,42 @@ def load_image_into_numpy_array(path):
     if(len(bands)>1):
         image = image.convert('1')
 
+    # return np.array(image.getdata()).reshape(
+    #     (im_height, im_width, 1)).astype(np.uint8)
     return np.array(image.getdata()).reshape(
-        (im_height, im_width, 1)).astype(np.uint8)
+        (im_height, im_width)).astype(np.uint8)
+
 
     # def rgbOrrgba2gray(rgb):
     #     r, g, b = rgb[:, :, 0], rgb[:, :, 1], rgb[:, :, 2]
     #     gray = 0.2989 * r + 0.5870 * g + 0.1140 * b
     #
     #     return gray
+
+
+def getDataset(images, oneHotLabels,bboxList):
+    # not all have BBOX so no dataset object , have to put as none ?
+    # dataset = tf.data.Dataset.from_tensor_slices( (images,oneHotLabels,bboxList))
+    # 1800 1800 but still no , need to convert the images or everything to tensor
+
+    dataset = tf.data.Dataset.from_tensor_slices((images, oneHotLabels))
+    dataset = dataset.shuffle(5000, reshuffle_each_iteration=True)
+    dataset = dataset.repeat()  # Mandatory for Keras for now
+    dataset = dataset.batch(BATCH_SIZE,
+                            drop_remainder=True)  # drop_remainder is important on TPU, batch size must be fixed
+    dataset = dataset.prefetch(
+        -1)  # fetch next batches while training on the current one (-1: autotune prefetch buffer size)
+    # xmin = tf.random.uniform((), 0, 48, dtype=tf.int32)
+    # ymin = tf.random.uniform((), 0, 48, dtype=tf.int32)
+    # image = tf.reshape(image, (28, 28, 1,))
+    # image = tf.image.pad_to_bounding_box(image, ymin, xmin, 75, 75)
+    # image = tf.cast(image, tf.float32) / 255.0
+    # xmin = tf.cast(xmin, tf.float32)
+    # ymin = tf.cast(ymin, tf.float32)
+    #
+    # xmax = (xmin + 28) / 75
+    # ymax = (ymin + 28) / 75
+    # xmin = xmin / 75
+    # ymin = ymin / 75
+    # return image, (tf.one_hot(label, 10), [xmin, ymin, xmax, ymax])
+    return dataset
