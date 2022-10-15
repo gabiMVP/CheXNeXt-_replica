@@ -9,6 +9,7 @@ import csv
 import wget
 import zipfile
 from google_drive_downloader import GoogleDriveDownloader
+from keras.applications.densenet import DenseNet121
 from tensorflow.keras import layers
 from tensorflow.keras import Model
 from tensorflow.keras.optimizers import RMSprop
@@ -82,13 +83,18 @@ def main():
 
     #Now put all the data in dataset so the model can load it as input
     print("TOP")
-    train_images_np = tf.convert_to_tensor(np.array(train_images_np))
-    test_images_np= tf.convert_to_tensor(np.array(test_images_np))
+    train_images_np = tf.convert_to_tensor(train_images_np)
+    test_images_np= tf.convert_to_tensor(test_images_np)
     # trainigLabels= tf.convert_to_tensor(np.array(trainigLabels))
     # testLabels= tf.convert_to_tensor(np.array(testLabels))
     trainingDataset = util.getDataset(train_images_np,trainigLabels,trainingBbox)
     testDataset = util.getDataset(test_images_np, testLabels, testingBbox)
 
+    #DenseNet used  224×224 but the model in the paper 512X512
+    #I copied the 2d Grayscale image 3 times to replicate it being in 3 chanebecause to use imagenet weiths we need 3 chaneles
+    model_d = DenseNet121(weights='imagenet', include_top=False, input_shape=(512, 512,3))
+
+    x = model_d.output
 
 
 
