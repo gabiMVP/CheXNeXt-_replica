@@ -110,7 +110,9 @@ def main():
     history = model.fit(trainingDataset,
                         steps_per_epoch=steps_per_epoch, validation_data=testDataset,
                         validation_steps=validation_steps, epochs=EPOCHS)
-
+    # reduce training from files to 20 images
+    #  impplement if plateu on valid set then decrease learning rate  + save the model every epoc and replace if better peformance
+    #add heat maps and viz util 
 
 def feature_extractor(inputs):
     feature_extractor = DenseNet121(weights='imagenet', include_top=False, input_shape=(512, 512, 3))(inputs)
