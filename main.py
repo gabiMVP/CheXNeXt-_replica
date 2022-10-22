@@ -120,8 +120,8 @@ def feature_extractor(inputs):
 
 def classifier(inputs):
     #add flatten larye because  8, 16, 16, 14 shape of final model before
-    flatten = tf.keras.layers.Flatten()(inputs)
-    x = tf.keras.layers.Dense(14, activation='softmax', name="classification")(flatten)
+    averagePool = tf.keras.layers.GlobalAveragePooling2D()(inputs)
+    x = tf.keras.layers.Dense(14, activation='softmax', name="classification")(averagePool)
     return x
 
 
