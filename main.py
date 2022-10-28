@@ -9,8 +9,10 @@ import shutil
 import csv
 import wget
 import zipfile
+import cv2
 from google_drive_downloader import GoogleDriveDownloader
 from keras.applications.densenet import DenseNet121
+from keras.callbacks import ReduceLROnPlateau, ModelCheckpoint
 from tensorflow.keras import layers
 from tensorflow.keras import Model
 from tensorflow.keras.optimizers import RMSprop
@@ -46,29 +48,44 @@ def main():
     # I took 185 of the data entries from BBOX list and put them in a new file to create a test BBOX list
 
     # Training data
-    with open('./metadata/BBox_List_2017 (1).csv') as csvfile:
-        csvReader = csv.reader(csvfile, delimiter=',')
-        next(csvReader)
-        for row in csvReader:
-            trainingList.append(row[0])
-            trainigLabels.append(util.convertfromNameOfDiseazeToOneHot(row[1]))
-            trainingBbox.append(np.array(row[2:]))
+    # removed until ready for server
+    # with open('./metadata/BBox_List_2017 (1).csv') as csvfile:
+    #     csvReader = csv.reader(csvfile, delimiter=',')
+    #     next(csvReader)
+    #     for row in csvReader:
+    #         trainingList.append(row[0])
+    #         trainigLabels.append(util.convertfromNameOfDiseazeToOneHot(row[1]))
+    #         trainingBbox.append(np.array(row[2:]))
+    #
+    # # df = pd.read_csv('./metadata/trainGabi1012.csv', index_col=0)
+    # with open('./metadata/trainGabi1012.csv') as csvfile1:
+    #     csvReader = csv.reader(csvfile1, delimiter=',')
+    #     for row in csvReader:
+    #         trainingList.append(row[0])
+    #         trainigLabels.append(util.convertfromNameOfDiseazeToOneHot(row[1]))
+    #
+    # # Test data
+    # with open('./metadata/BBox_List_2017_TEST.csv') as csvfile2:
+    #     csvReader = csv.reader(csvfile2, delimiter=',')
+    #     for row in csvReader:
+    #         testList.append(row[0])
+    #         testLabels.append(util.convertfromNameOfDiseazeToOneHot(row[1]))
+    #         testingBbox.append(np.array(row[2:]))
+    # with open('./metadata/testgabi200.csv') as csvfile3:
+    #     csvReader = csv.reader(csvfile3, delimiter=',')
+    #     for row in csvReader:
+    #         testList.append(row[0])
+    #         testLabels.append(util.convertfromNameOfDiseazeToOneHot(row[1]))
+    # Training data
 
-    # df = pd.read_csv('./metadata/trainGabi1012.csv', index_col=0)
-    with open('./metadata/trainGabi1012.csv') as csvfile1:
+    with open('./metadata/trainGabiDev80.csv') as csvfile1:
         csvReader = csv.reader(csvfile1, delimiter=',')
         for row in csvReader:
             trainingList.append(row[0])
             trainigLabels.append(util.convertfromNameOfDiseazeToOneHot(row[1]))
 
-    # Test data
-    with open('./metadata/BBox_List_2017_TEST.csv') as csvfile2:
-        csvReader = csv.reader(csvfile2, delimiter=',')
-        for row in csvReader:
-            testList.append(row[0])
-            testLabels.append(util.convertfromNameOfDiseazeToOneHot(row[1]))
-            testingBbox.append(np.array(row[2:]))
-    with open('./metadata/testgabi200.csv') as csvfile3:
+     # # Test data
+    with open('./metadata/testGabiDev20.csv') as csvfile3:
         csvReader = csv.reader(csvfile3, delimiter=',')
         for row in csvReader:
             testList.append(row[0])
@@ -99,7 +116,9 @@ def main():
     # early stopping was performed by saving the network after every epoch and choosing the saved network with the lowest loss on the tuning set.
     model = define_compile_model()
     model.summary()
-    EPOCHS = 4
+    # densenetModel = model.layers[1]
+    # densenetModel.summary()
+    EPOCHS = 1
     BATCH_SIZE = 8
     # steps_per_epoch =tf.data.experimental.cardinality(trainingDataset).numpy()
     # validation_steps=tf.data.experimental.cardinality(testDataset).numpy()
@@ -107,12 +126,101 @@ def main():
     steps_per_epoch = math.ceil(len(trainigLabels) / BATCH_SIZE)
     validation_steps = math.ceil(len(testLabels) / BATCH_SIZE)
 
+    reduce_lr_plateau = ReduceLROnPlateau(monitor='val_accuracy', factor=0.5,
+                                  patience=5, verbose=1, min_lr=0.00001)
+    checkpoint_filepath = './checkpoint/'
+
+    checkpoint = ModelCheckpoint('model.h5', verbose=1, save_best_only=True)
+    # model_checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
+    #     filepath=checkpoint_filepath,
+    #     save_weights_only=True,
+    #     monitor='val_accuracy',
+    #     mode='max',
+    #     verbose=1,
+    #     save_best_only=True)
     history = model.fit(trainingDataset,
                         steps_per_epoch=steps_per_epoch, validation_data=testDataset,
-                        validation_steps=validation_steps, epochs=EPOCHS)
-    # reduce training from files to 20 images
-    #  impplement if plateu on valid set then decrease learning rate  + save the model every epoc and replace if better peformance
-    #add heat maps and viz util 
+                        validation_steps=validation_steps, epochs=EPOCHS,
+                        callbacks=[reduce_lr_plateau,checkpoint])
+    # model.save("CheXnetXt_replica_gabi")
+
+    #add heat maps and viz util
+# To generate the CAMs, images were fed into the fully trained network
+# and the feature maps from the final convolutional layer were extracted
+# A map of the most salient features used in classifying the image
+# as having a specified pathology was computed by taking the weighted sum
+# of the feature maps using their associated weights in the fully connected layer
+# select all the layers for which you want to visualize the outputs and store it in a list
+#     outputLastConv = model.get_layer('bn').output
+#     vis_model = Model(model.input, outputLastConv)
+    sample_image = test_images_np[0].numpy()
+    actual_label = testLabels[0].numpy()
+    sample_image_processed = np.expand_dims(sample_image, axis=0)
+
+    pred_label = np.argmax(model.predict(sample_image_processed), axis=-1)[0]
+    heatmap = get_CAM(model, sample_image_processed, actual_label, layer_name='bn')
+    heatmap = cv2.resize(heatmap, (sample_image.shape[0], sample_image.shape[1]))
+    heatmap = heatmap * 255
+    heatmap = np.clip(heatmap, 0, 255).astype(np.uint8)
+    heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_HOT)
+    converted_img = sample_image
+    super_imposed_image = cv2.addWeighted(converted_img, 0.8, heatmap.astype('float32'), 2e-3, 0.0)
+
+    f, ax = plt.subplots(2, 2, figsize=(15, 8))
+
+    ax[0, 0].imshow(sample_image)
+    ax[0, 0].set_title(f"True label: {actual_label} \n Predicted label: {pred_label}")
+    ax[0, 0].axis('off')
+
+    ax[1, 0].imshow(heatmap)
+    ax[1, 0].set_title("Class Activation Map")
+    ax[1, 0].axis('off')
+
+    ax[1, 1].imshow(super_imposed_image)
+    ax[1, 1].set_title("Activation map superimposed")
+    ax[1, 1].axis('off')
+    plt.tight_layout()
+    plt.show()
+
+
+def get_CAM(model, processed_image, actual_label, layer_name='bn'):
+    model.get_layer(layer_name)
+    model_grad = Model([model.inputs],
+                       [model.get_layer(layer_name).output, model.output])
+
+    with tf.GradientTape() as tape:
+        conv_output_values, predictions = model_grad(processed_image)
+
+
+        # watch the conv_output_values
+        tape.watch(conv_output_values)
+
+        expected_output = actual_label
+        predictions = predictions[0]
+        loss = tf.keras.losses.categorical_crossentropy(
+            expected_output, predictions
+        )
+
+    # nu merge bine bp aici
+    # get the gradient of the loss with respect to the outputs of the last conv layer
+    grads_values = tape.gradient(loss, conv_output_values)
+    grads_values = tf.keras.backend.mean(grads_values, axis=(0, 1, 2))
+
+    conv_output_values = np.squeeze(conv_output_values.numpy())
+    grads_values = grads_values.numpy()
+
+    # weight the convolution outputs with the computed gradients
+    # grad values 1024  conv output values 16 16 1024
+    for i in range(1024):
+        conv_output_values[:, :, i] *= grads_values[i]
+    heatmap = np.mean(conv_output_values, axis=-1)
+
+    heatmap = np.maximum(heatmap, 0)
+    heatmap /= heatmap.max()
+
+    del model_grad, conv_output_values, grads_values, loss
+
+    return heatmap
 
 def feature_extractor(inputs):
     feature_extractor = DenseNet121(weights='imagenet', include_top=False, input_shape=(512, 512, 3))(inputs)
@@ -136,11 +244,19 @@ def final_model(inputs):
     return classification_output
 
 
+
+
+
 def define_compile_model():
     inputs = tf.keras.layers.Input(shape=(512, 512, 3))
 
-    classification_output = final_model(inputs)
-    model = tf.keras.Model(inputs=inputs, outputs=classification_output)
+    feature_extractor = DenseNet121(weights='imagenet', include_top=False, input_shape=(512, 512, 3))
+    averagePool = tf.keras.layers.GlobalAveragePooling2D()(feature_extractor.output)
+    output = tf.keras.layers.Dense(14, activation='softmax', name="classification")(averagePool)
+
+
+    # classification_output = final_model(inputs)
+    model = tf.keras.Model(inputs=feature_extractor.input, outputs=output)
     optimizer = tf.keras.optimizers.Adam(learning_rate=0.0001)
     model.compile(optimizer=optimizer,
                   loss='categorical_crossentropy',
@@ -156,12 +272,16 @@ def downloadAndPrepareWorkspace():
     source_list_names = os.listdir(source_path)
     temp_path = os.path.join(source_path, 'temp')
     metadata_path = os.path.join(source_path, 'metadata')
+    checkpoint_path = os.path.join(source_path, 'checkpoint')
+    checkpointExists = os.path.exists(checkpoint_path)
     tempAlreadyExists = os.path.exists(temp_path)
     metaDataAlreadyExists = os.path.exists(metadata_path)
     if not tempAlreadyExists:
         os.makedirs(temp_path)
     if not metaDataAlreadyExists:
         os.makedirs(metadata_path)
+    if not checkpointExists:
+        os.makedirs(checkpoint_path)
     # URLs for the zip files
     links = [
         'https://nihcc.box.com/shared/static/vfk49d74nhbxq3nqjg0900w5nvkorp5c.gz',
