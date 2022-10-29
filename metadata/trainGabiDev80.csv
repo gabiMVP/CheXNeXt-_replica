@@ -1,0 +1,80 @@
+00000001_000.png,Cardiomegaly
+00000001_001.png,Cardiomegaly|Emphysema
+00000001_002.png,Cardiomegaly|Effusion
+00000002_000.png,No Finding
+00000003_001.png,Hernia
+00000003_002.png,Hernia
+00000003_003.png,Hernia|Infiltration
+00000003_004.png,Hernia
+00000003_005.png,Hernia
+00000003_006.png,Hernia
+00000003_007.png,Hernia
+00000003_000.png,Hernia
+00000004_000.png,Mass|Nodule
+00000005_000.png,No Finding
+00000005_001.png,No Finding
+00000005_002.png,No Finding
+00000005_003.png,No Finding
+00000005_004.png,No Finding
+00000005_005.png,No Finding
+00000005_006.png,Infiltration
+00000005_007.png,Effusion|Infiltration
+00000006_000.png,No Finding
+00000007_000.png,No Finding
+00000008_000.png,Cardiomegaly
+00000008_001.png,No Finding
+00000008_002.png,Nodule
+00000009_000.png,Emphysema
+00000010_000.png,Infiltration
+00000011_000.png,Effusion
+00000011_001.png,No Finding
+00000011_002.png,No Finding
+00000011_003.png,No Finding
+00000011_004.png,No Finding
+00000011_005.png,Infiltration
+00000011_006.png,Atelectasis
+00000011_007.png,Infiltration
+00000011_008.png,No Finding
+00000012_000.png,Effusion|Mass
+00000013_022.png,Infiltration|Mass
+00000013_023.png,Infiltration|Mass|Pneumothorax
+00000013_024.png,Mass
+00000013_025.png,Cardiomegaly|Infiltration|Mass|Nodule
+00000013_026.png,Cardiomegaly|Emphysema
+00000013_027.png,Cardiomegaly|Effusion|Emphysema|Mass
+00000013_028.png,Cardiomegaly|Effusion|Emphysema|Mass
+00000013_029.png,Cardiomegaly|Effusion|Emphysema|Mass
+00000013_030.png,Atelectasis|Cardiomegaly|Emphysema|Mass|Pneumothorax
+00000013_031.png,Emphysema|Mass
+00000013_032.png,Emphysema|Mass|Pneumothorax
+00000013_033.png,Pneumothorax
+00000013_034.png,Emphysema|Pneumothorax
+00000013_035.png,Atelectasis|Pneumothorax
+00000013_036.png,Pneumothorax
+00000013_037.png,Cardiomegaly|Emphysema|Pneumothorax
+00000013_038.png,No Finding
+00000013_039.png,Pneumothorax
+00000013_040.png,Cardiomegaly|Emphysema|Pneumothorax
+00000013_042.png,Emphysema
+00000013_041.png,Emphysema
+00000013_043.png,Mass|Pleural_Thickening
+00000013_044.png,Cardiomegaly|Mass|Pleural_Thickening
+00000013_045.png,Cardiomegaly
+00000013_046.png,Infiltration
+00000013_000.png,No Finding
+00000013_001.png,Emphysema|Pneumothorax
+00000013_002.png,Emphysema|Pneumothorax
+00000013_003.png,Pleural_Thickening
+00000013_004.png,Effusion|Emphysema|Infiltration|Pneumothorax
+00000013_005.png,Emphysema|Infiltration|Pleural_Thickening|Pneumothorax
+00000013_006.png,Effusion|Infiltration
+00000013_007.png,Infiltration
+00000013_008.png,No Finding
+00000013_009.png,Pleural_Thickening
+00000013_010.png,Effusion|Pneumonia|Pneumothorax
+00000013_011.png,Pneumothorax
+00000013_012.png,Pneumothorax
+00000013_013.png,Pneumothorax
+00000013_014.png,No Finding
+00000013_015.png,No Finding
+00000013_016.png,No Finding

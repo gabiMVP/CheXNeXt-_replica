@@ -4,6 +4,7 @@ import tarfile
 import zipfile
 import matplotlib.pyplot as plt
 import numpy as np
+import scipy as sp
 import tensorflow as tf
 import shutil
 import csv
@@ -23,7 +24,7 @@ import scipy
 import urllib.request
 import pandas as pd
 import Utils as util
-
+trainModel = False
 
 def main():
     downloadAndPrepareWorkspace()
@@ -76,15 +77,15 @@ def main():
     #     for row in csvReader:
     #         testList.append(row[0])
     #         testLabels.append(util.convertfromNameOfDiseazeToOneHot(row[1]))
-    # Training data
 
+    # Training data
     with open('./metadata/trainGabiDev80.csv') as csvfile1:
         csvReader = csv.reader(csvfile1, delimiter=',')
         for row in csvReader:
             trainingList.append(row[0])
             trainigLabels.append(util.convertfromNameOfDiseazeToOneHot(row[1]))
 
-     # # Test data
+    # # Test data
     with open('./metadata/testGabiDev20.csv') as csvfile3:
         csvReader = csv.reader(csvfile3, delimiter=',')
         for row in csvReader:
@@ -127,36 +128,50 @@ def main():
     validation_steps = math.ceil(len(testLabels) / BATCH_SIZE)
 
     reduce_lr_plateau = ReduceLROnPlateau(monitor='val_accuracy', factor=0.5,
-                                  patience=5, verbose=1, min_lr=0.00001)
+                                          patience=5, verbose=1, min_lr=0.00001)
     checkpoint_filepath = './checkpoint/'
 
-    checkpoint = ModelCheckpoint('model.h5', verbose=1, save_best_only=True)
-    # model_checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
-    #     filepath=checkpoint_filepath,
-    #     save_weights_only=True,
-    #     monitor='val_accuracy',
-    #     mode='max',
-    #     verbose=1,
-    #     save_best_only=True)
-    history = model.fit(trainingDataset,
-                        steps_per_epoch=steps_per_epoch, validation_data=testDataset,
-                        validation_steps=validation_steps, epochs=EPOCHS,
-                        callbacks=[reduce_lr_plateau,checkpoint])
-    # model.save("CheXnetXt_replica_gabi")
+    # checkpoint = ModelCheckpoint('model.h5', verbose=1, save_best_only=True)
+    model_checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
+        filepath=checkpoint_filepath,
+        save_weights_only=True,
+        monitor='val_accuracy',
+        mode='max',
+        verbose=1,
+        save_best_only=True)
 
-    #add heat maps and viz util
-# To generate the CAMs, images were fed into the fully trained network
-# and the feature maps from the final convolutional layer were extracted
-# A map of the most salient features used in classifying the image
-# as having a specified pathology was computed by taking the weighted sum
-# of the feature maps using their associated weights in the fully connected layer
-# select all the layers for which you want to visualize the outputs and store it in a list
-#     outputLastConv = model.get_layer('bn').output
-#     vis_model = Model(model.input, outputLastConv)
-    sample_image = test_images_np[0].numpy()
-    actual_label = testLabels[0].numpy()
+
+    if (trainModel):
+        history = model.fit(trainingDataset,
+                            steps_per_epoch=steps_per_epoch, validation_data=testDataset,
+                            validation_steps=validation_steps, epochs=EPOCHS,
+                            callbacks=[reduce_lr_plateau, model_checkpoint_callback])
+    else:
+        model.load_weights(checkpoint_filepath)
+
+    loss, acc = model.evaluate(testDataset, batch_size=BATCH_SIZE, steps=validation_steps, verbose=2)
+    print("Restored model, accuracy: {:5.2f}%".format(100 * acc))
+    model.save("CheXnetXt_replica_gabi")
+
+    # add heat maps and viz util
+    # To generate the CAMs, images were fed into the fully trained network
+    # and the feature maps from the final convolutional layer were extracted
+    # A map of the most salient features used in classifying the image
+    # as having a specified pathology was computed by taking the weighted sum
+    # of the feature maps using their associated weights in the fully connected layer
+    # select all the layers for which you want to visualize the outputs and store it in a list
+    #     outputLastConv = model.get_layer('bn').output
+    #     vis_model = Model(model.input, outputLastConv)
+
+    idx = 0
+    sample_image = test_images_np[idx].numpy()
+    actual_label = testLabels[idx].numpy()
+
+    vizualizeCam(actual_label, model, sample_image)
+
+
+def vizualizeCam(actual_label, model, sample_image):
     sample_image_processed = np.expand_dims(sample_image, axis=0)
-
     pred_label = np.argmax(model.predict(sample_image_processed), axis=-1)[0]
     heatmap = get_CAM(model, sample_image_processed, actual_label, layer_name='bn')
     heatmap = cv2.resize(heatmap, (sample_image.shape[0], sample_image.shape[1]))
@@ -165,17 +180,17 @@ def main():
     heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_HOT)
     converted_img = sample_image
     super_imposed_image = cv2.addWeighted(converted_img, 0.8, heatmap.astype('float32'), 2e-3, 0.0)
-
+    sample_activation = get_CAM_simple(model, sample_image_processed)
     f, ax = plt.subplots(2, 2, figsize=(15, 8))
-
     ax[0, 0].imshow(sample_image)
     ax[0, 0].set_title(f"True label: {actual_label} \n Predicted label: {pred_label}")
     ax[0, 0].axis('off')
-
+    ax[0, 1].imshow(sample_activation)
+    ax[0, 1].set_title("Class activation map")
+    ax[0, 1].axis('off')
     ax[1, 0].imshow(heatmap)
-    ax[1, 0].set_title("Class Activation Map")
+    ax[1, 0].set_title("Heat Map")
     ax[1, 0].axis('off')
-
     ax[1, 1].imshow(super_imposed_image)
     ax[1, 1].set_title("Activation map superimposed")
     ax[1, 1].axis('off')
@@ -184,13 +199,14 @@ def main():
 
 
 def get_CAM(model, processed_image, actual_label, layer_name='bn'):
-    model.get_layer(layer_name)
+    # we used the last batchNormalization Layer of the Densenet Model where
+    # layer_name = 'conv5_block16_concat'
+    x = model.get_layer(layer_name)
     model_grad = Model([model.inputs],
                        [model.get_layer(layer_name).output, model.output])
 
     with tf.GradientTape() as tape:
         conv_output_values, predictions = model_grad(processed_image)
-
 
         # watch the conv_output_values
         tape.watch(conv_output_values)
@@ -204,15 +220,15 @@ def get_CAM(model, processed_image, actual_label, layer_name='bn'):
     # nu merge bine bp aici
     # get the gradient of the loss with respect to the outputs of the last conv layer
     grads_values = tape.gradient(loss, conv_output_values)
-    grads_values = tf.keras.backend.mean(grads_values, axis=(0, 1, 2))
+    # grads_values = tf.keras.backend.mean(grads_values, axis=(0, 1, 2))
 
     conv_output_values = np.squeeze(conv_output_values.numpy())
-    grads_values = grads_values.numpy()
+    grads_values = np.squeeze(grads_values)
 
     # weight the convolution outputs with the computed gradients
-    # grad values 1024  conv output values 16 16 1024
     for i in range(1024):
-        conv_output_values[:, :, i] *= grads_values[i]
+        # conv_output_values[:, :, i] *= grads_values[i]
+        conv_output_values[:, :, i] *= grads_values[:, :, i]
     heatmap = np.mean(conv_output_values, axis=-1)
 
     heatmap = np.maximum(heatmap, 0)
@@ -222,6 +238,29 @@ def get_CAM(model, processed_image, actual_label, layer_name='bn'):
 
     return heatmap
 
+
+def get_CAM_simple(model, processed_image):
+    # we used the last batchNormalization Layer of the Densenet Model where
+    layer_name = 'bn'
+
+    vis_model = Model([model.inputs],
+                      [model.get_layer(layer_name).output, model.layers[-1].output])
+    features, predictions = vis_model.predict(processed_image)
+    features = features[0]
+    gap_weights = model.layers[-1].get_weights()[0]
+    class_activation_features = sp.ndimage.zoom(features, (512 / 16, 512 / 16, 1), order=2)
+    # compute the intensity of each feature in the CAM
+    class_activation_weights = gap_weights
+    cam_output = np.dot(class_activation_features, class_activation_weights)
+    cam_output = cam_output.mean(axis=-1)
+    cam_output -= cam_output.mean(axis=-1)
+    cam_output /= cam_output.std()
+    cam_output *= 255
+    cam_output = np.clip(cam_output, 0, 255).astype(np.uint8)
+
+    return cam_output
+
+
 def feature_extractor(inputs):
     feature_extractor = DenseNet121(weights='imagenet', include_top=False, input_shape=(512, 512, 3))(inputs)
 
@@ -229,7 +268,7 @@ def feature_extractor(inputs):
 
 
 def classifier(inputs):
-    #add flatten larye because  8, 16, 16, 14 shape of final model before
+    # add flatten larye because  8, 16, 16, 14 shape of final model before
     averagePool = tf.keras.layers.GlobalAveragePooling2D()(inputs)
     x = tf.keras.layers.Dense(14, activation='softmax', name="classification")(averagePool)
     return x
@@ -244,16 +283,12 @@ def final_model(inputs):
     return classification_output
 
 
-
-
-
 def define_compile_model():
     inputs = tf.keras.layers.Input(shape=(512, 512, 3))
 
     feature_extractor = DenseNet121(weights='imagenet', include_top=False, input_shape=(512, 512, 3))
     averagePool = tf.keras.layers.GlobalAveragePooling2D()(feature_extractor.output)
     output = tf.keras.layers.Dense(14, activation='softmax', name="classification")(averagePool)
-
 
     # classification_output = final_model(inputs)
     model = tf.keras.Model(inputs=feature_extractor.input, outputs=output)
