@@ -14,6 +14,7 @@ import cv2
 from google_drive_downloader import GoogleDriveDownloader
 from keras.applications.densenet import DenseNet121
 from keras.callbacks import ReduceLROnPlateau, ModelCheckpoint
+from sklearn.preprocessing import OneHotEncoder
 from tensorflow.keras import layers
 from tensorflow.keras import Model
 from tensorflow.keras.optimizers import RMSprop
@@ -24,7 +25,9 @@ import scipy
 import urllib.request
 import pandas as pd
 import Utils as util
-trainModel = False
+
+trainModel = True
+
 
 def main():
     downloadAndPrepareWorkspace()
@@ -34,11 +37,14 @@ def main():
     # in the 1st version we will create a new dataset of 988 with Boudry box + 1012 random images for training (2k) and 200 for test
     trainingList = []
     testList = []
+    trainingImgages = []
+    testListImages = []
     trainigLabels = [];
     testLabels = [];
     trainingBbox = [];
     testingBbox = [];
-
+    testLabelsString = []
+    trainigLabelsString=[]
     train_images_np = []
     test_images_np = []
     imageLocation = "./images"
@@ -50,63 +56,103 @@ def main():
 
     # Training data
     # removed until ready for server
-    # with open('./metadata/BBox_List_2017 (1).csv') as csvfile:
-    #     csvReader = csv.reader(csvfile, delimiter=',')
-    #     next(csvReader)
-    #     for row in csvReader:
-    #         trainingList.append(row[0])
-    #         trainigLabels.append(util.convertfromNameOfDiseazeToOneHot(row[1]))
-    #         trainingBbox.append(np.array(row[2:]))
-    #
-    # # df = pd.read_csv('./metadata/trainGabi1012.csv', index_col=0)
-    # with open('./metadata/trainGabi1012.csv') as csvfile1:
-    #     csvReader = csv.reader(csvfile1, delimiter=',')
-    #     for row in csvReader:
-    #         trainingList.append(row[0])
-    #         trainigLabels.append(util.convertfromNameOfDiseazeToOneHot(row[1]))
-    #
-    # # Test data
-    # with open('./metadata/BBox_List_2017_TEST.csv') as csvfile2:
-    #     csvReader = csv.reader(csvfile2, delimiter=',')
-    #     for row in csvReader:
-    #         testList.append(row[0])
-    #         testLabels.append(util.convertfromNameOfDiseazeToOneHot(row[1]))
-    #         testingBbox.append(np.array(row[2:]))
-    # with open('./metadata/testgabi200.csv') as csvfile3:
-    #     csvReader = csv.reader(csvfile3, delimiter=',')
-    #     for row in csvReader:
-    #         testList.append(row[0])
-    #         testLabels.append(util.convertfromNameOfDiseazeToOneHot(row[1]))
 
     # Training data
-    with open('./metadata/trainGabiDev80.csv') as csvfile1:
+    # with open('./metadata/train_val_list.txt',"r") as f:
+    #     trainingList = [line.strip() for line in f.read().split('\n')]
+    # with open('./metadata/test_list.txt',"r") as f:
+    #     testList = [line.strip() for line in f.read().split('\n')]
+    with open('./metadata/train_val_list1.txt',"r") as f:
+        trainingList = [line.strip() for line in f.read().split('\n')]
+    with open('./metadata/test_list1.txt',"r") as f:
+        testList = [line.strip() for line in f.read().split('\n')]
+
+    with open('./metadata/Data_Entry_2017_v2020UPDATED.csv') as csvfile1:
         csvReader = csv.reader(csvfile1, delimiter=',')
+        next(csvReader)
         for row in csvReader:
-            trainingList.append(row[0])
-            trainigLabels.append(util.convertfromNameOfDiseazeToOneHot(row[1]))
+            if (row[0] in trainingList):
+                image_path = os.path.join(imageLocation, row[0])
+                trainingImgages.append(image_path)
+                trainigLabels.append(util.convertfromNameOfDiseazeToOneHot(row[1]))
+                trainigLabelsString.append(row[1])
+            elif (row[0] in testList):
+                # testList.append(row[0])
+                image_path = os.path.join(imageLocation, row[0])
+                testListImages.append(image_path)
+                testLabels.append(util.convertfromNameOfDiseazeToOneHot(row[1]))
+                testLabelsString.append(row[1])
 
-    # # Test data
-    with open('./metadata/testGabiDev20.csv') as csvfile3:
-        csvReader = csv.reader(csvfile3, delimiter=',')
-        for row in csvReader:
-            testList.append(row[0])
-            testLabels.append(util.convertfromNameOfDiseazeToOneHot(row[1]))
+    print(f"There are {len(trainingList) +len(testList) } images images in total loaded .")
+    print(f"There are {len(trainigLabels)  + len(testLabels)   } labels loaded.")
+    print("TOP")
 
-    for image in trainingList:
-        image_path = os.path.join(imageLocation, image)
-        train_images_np.append(util.load_image_into_numpy_array(image_path))
-    for image in testList:
-        image_path = os.path.join(imageLocation, image)
-        test_images_np.append(util.load_image_into_numpy_array(image_path))
+    CLASS_NAMES = ['Atelectasis', 'Cardiomegaly', 'Effusion', 'Infiltration', 'Mass', 'Nodule', 'Pneumonia',
+                   'Pneumothorax', 'Consolidation', 'Edema', 'Emphysema', 'Fibrosis', 'Pleural_Thickening', 'Hernia']
+
+
+
+    # traindf1 = pd.read_csv("./metadata/Data_Entry_2017_v2020UPDATED.csv", dtype = str)
+
+    trainigLabels = tf.convert_to_tensor(np.array(trainigLabels)).numpy()
+    train_dict  = { "pic":trainingImgages}
+
+
+    traindf = pd.DataFrame(data=  train_dict)
+    trainDfOneHot =  pd.DataFrame(trainigLabels,columns =CLASS_NAMES )
+    # traindf=pd.concat([traindf, trainDfOneHot] )
+    traindf = traindf.join(trainDfOneHot)
+    # traindf =  pd.concat([traindf, trainDfOneHot], keys=['pic', 'label'], axis=1)
+
+
+
+
+    datagen = ImageDataGenerator(rescale=1. / 255., rotation_range=20)
+    train_generator = datagen.flow_from_dataframe(
+        dataframe=traindf,
+        x_col="pic",
+        y_col= CLASS_NAMES,
+        subset="training",
+        batch_size=8,
+        seed=42,
+        shuffle=True,
+        class_mode="raw",
+        target_size=(512, 512))
+
+    test_dict= {'pic': testListImages }
+    testdf = pd.DataFrame(data = test_dict)
+    testLabels = tf.convert_to_tensor(np.array(testLabels)).numpy()
+    testDfOneHot = pd.DataFrame(testLabels, columns=CLASS_NAMES)
+    # testdf = pd.concat([testdf, testDfOneHot], keys=['pic', 'label'], axis=1)
+    testdf= testdf.join(testDfOneHot)
+    datagen = ImageDataGenerator(rescale=1. / 255., rotation_range=20)
+    validation_generator = datagen.flow_from_dataframe(
+        dataframe=testdf,
+        x_col="pic",
+        y_col=CLASS_NAMES,
+        batch_size=8,
+        seed=42,
+        shuffle=True,
+        class_mode="raw",
+        target_size=(512, 512))
+
+
+
+    # for image in trainingList:
+    #     image_path = os.path.join(imageLocation, image)
+    #     train_images_np.append(util.load_image_into_numpy_array(image_path))
+    # for image in testList:
+    #     image_path = os.path.join(imageLocation, image)
+    #     test_images_np.append(util.load_image_into_numpy_array(image_path))
 
     # Now put all the data in dataset so the model can load it as input
-    print("TOP")
-    train_images_np = tf.convert_to_tensor(train_images_np)
-    test_images_np = tf.convert_to_tensor(test_images_np)
-    # trainigLabels= tf.convert_to_tensor(np.array(trainigLabels))
-    # testLabels= tf.convert_to_tensor(np.array(testLabels))
-    trainingDataset = util.getDataset(train_images_np, trainigLabels, trainingBbox)
-    testDataset = util.getDataset(test_images_np, testLabels, testingBbox)
+    #
+    # train_images_np = tf.convert_to_tensor(train_images_np)
+    # test_images_np = tf.convert_to_tensor(test_images_np)
+    # # trainigLabels= tf.convert_to_tensor(np.array(trainigLabels))
+    # # testLabels= tf.convert_to_tensor(np.array(testLabels))
+    # trainingDataset = util.getDataset(train_images_np, trainigLabels, trainingBbox)
+    # testDataset = util.getDataset(test_images_np, testLabels, testingBbox)
 
     # DenseNet used  224×224 but the model in the paper 512X512
     # I copied the 2d Grayscale image 3 times to replicate it being in 3 chanebecause to use imagenet weiths we need 3 chaneles
@@ -140,16 +186,20 @@ def main():
         verbose=1,
         save_best_only=True)
 
-
-    if (trainModel):
-        history = model.fit(trainingDataset,
-                            steps_per_epoch=steps_per_epoch, validation_data=testDataset,
+    if trainModel:
+        # history = model.fit(trainingDataset,
+        #                     steps_per_epoch=steps_per_epoch, validation_data=testDataset,
+        #                     validation_steps=validation_steps, epochs=EPOCHS,
+        #                     callbacks=[reduce_lr_plateau, model_checkpoint_callback])
+        history = model.fit_generator(
+            generator=train_generator,steps_per_epoch=steps_per_epoch, validation_data=validation_generator,
                             validation_steps=validation_steps, epochs=EPOCHS,
-                            callbacks=[reduce_lr_plateau, model_checkpoint_callback])
+                            callbacks=[reduce_lr_plateau, model_checkpoint_callback]
+        )
     else:
         model.load_weights(checkpoint_filepath)
 
-    loss, acc = model.evaluate(testDataset, batch_size=BATCH_SIZE, steps=validation_steps, verbose=2)
+    loss, acc = model.evaluate_generator(validation_generator, steps=validation_steps, verbose=2)
     print("Restored model, accuracy: {:5.2f}%".format(100 * acc))
     model.save("CheXnetXt_replica_gabi")
 
@@ -306,17 +356,21 @@ def downloadAndPrepareWorkspace():
     source_path = './'
     source_list_names = os.listdir(source_path)
     temp_path = os.path.join(source_path, 'temp')
+    images_path = os.path.join(source_path, 'images')
     metadata_path = os.path.join(source_path, 'metadata')
     checkpoint_path = os.path.join(source_path, 'checkpoint')
     checkpointExists = os.path.exists(checkpoint_path)
     tempAlreadyExists = os.path.exists(temp_path)
     metaDataAlreadyExists = os.path.exists(metadata_path)
+    ImagesDataAlreadyExists = os.path.exists(images_path)
     if not tempAlreadyExists:
         os.makedirs(temp_path)
     if not metaDataAlreadyExists:
         os.makedirs(metadata_path)
     if not checkpointExists:
         os.makedirs(checkpoint_path)
+    if not ImagesDataAlreadyExists:
+        os.makedirs(images_path)
     # URLs for the zip files
     links = [
         'https://nihcc.box.com/shared/static/vfk49d74nhbxq3nqjg0900w5nvkorp5c.gz',
@@ -353,6 +407,9 @@ def downloadAndPrepareWorkspace():
     # 'metadata.rar'
     originalDriveLink = 'https://drive.google.com/file/d/1QcGwCPZDl-soNlKXaCQcVFMhYnD1dP-U/view?usp=sharing'
     driveLink = 'https://drive.google.com/uc?export=download&id=1K-_oj7G9sLqTOt_IKoy6TanNKDLJ_occ'
+
+
+    driveLink ="https://drive.google.com/uc?export=download&id=1PPg_ZipYXbaegqfb92pvQ5sZYlLv4YCH"
     # GoogleDriveDownloader.download_file_from_google_drive(file_id='1QcGwCPZDl-soNlKXaCQcVFMhYnD1dP-U',
     #                                 dest_path='./temp',
     #                                 unzip=True)

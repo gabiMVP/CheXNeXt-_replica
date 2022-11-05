@@ -10,7 +10,6 @@ import imageio
 from six import BytesIO
 from PIL import Image, ImageDraw, ImageFont
 
-
 BATCH_SIZE = 8
 
 import glob
@@ -22,13 +21,14 @@ CLASS_NAMES = ['Atelectasis', 'Cardiomegaly', 'Effusion', 'Infiltration', 'Mass'
 
 def convertfromNameOfDiseazeToOneHot(rowDataset):
     indexes = []
-    for x in rowDataset.split("|"):
-        try:
+    try:
+        for x in rowDataset.split("|"):
             indexes.append(CLASS_NAMES.index(x))
-            onehot = tf.reduce_max(tf.one_hot(indexes, N_CLASSES, dtype=tf.int32), axis=0)
-            return onehot
-        except ValueError:
-            return tf.convert_to_tensor(np.zeros(14), dtype=tf.int32)
+        onehot = tf.reduce_max(tf.one_hot(indexes, N_CLASSES, dtype=tf.int32), axis=0)
+
+        return list(onehot.numpy().astype(np.int))
+    except ValueError:
+        return list(tf.convert_to_tensor(np.zeros(14), dtype=tf.int32).numpy().astype(np.int))
 
 
 def load_image_into_numpy_array(path):
@@ -62,20 +62,19 @@ def load_image_into_numpy_array(path):
     #                                                                   variance=[np.square(0.299),
     #                                                                             np.square(0.224),
     #                                                                             np.square(0.225)])
-    #https://stackoverflow.com/questions/67480507/tensorflow-equivalent-of-pytorchs-transforms-normalize --we use from here the 3rd option of taking the average Std and mean
-    #255 because 8 bit  0.449 avg mean 0.226 avg std
+    # https://stackoverflow.com/questions/67480507/tensorflow-equivalent-of-pytorchs-transforms-normalize --we use from here the 3rd option of taking the average Std and mean
+    # 255 because 8 bit  0.449 avg mean 0.226 avg std
     image = image.resize((512, 512))
     # image = np.array(image.getdata()).reshape((im_height, im_width)).astype(np.uint8)
     # image = ((image /255.0)-0.449)/0.226
     image = np.array(image.getdata()).reshape((512, 512)).astype(np.uint8)
-    copyChannels = np.zeros(shape=(512,512,3), dtype=np.uint8)
-    copyChannels[:,:,0] = image
+    copyChannels = np.zeros(shape=(512, 512, 3), dtype=np.uint8)
+    copyChannels[:, :, 0] = image
     copyChannels[:, :, 1] = image
     copyChannels[:, :, 2] = image
     # image = ((tf.cast(np.array(image), tf.float32) / 255.0) - 0.449) / 0.226
     image = ((tf.cast(copyChannels, tf.float32) / 255.0) - 0.449) / 0.226
     return image
-
 
     # def rgbOrrgba2gray(rgb):
     #     r, g, b = rgb[:, :, 0], rgb[:, :, 1], rgb[:, :, 2]
@@ -110,3 +109,7 @@ def getDataset(images, oneHotLabels, bboxList):
     # ymin = ymin / 75
     # return image, (tf.one_hot(label, 10), [xmin, ymin, xmax, ymax])
     return dataset
+
+
+107643
+112120
