@@ -44,7 +44,7 @@ def main():
     trainingBbox = [];
     testingBbox = [];
     testLabelsString = []
-    trainigLabelsString=[]
+    trainigLabelsString = []
     train_images_np = []
     test_images_np = []
     imageLocation = "./images"
@@ -62,9 +62,9 @@ def main():
     #     trainingList = [line.strip() for line in f.read().split('\n')]
     # with open('./metadata/test_list.txt',"r") as f:
     #     testList = [line.strip() for line in f.read().split('\n')]
-    with open('./metadata/train_val_list1.txt',"r") as f:
+    with open('./metadata/train_val_list1.txt', "r") as f:
         trainingList = [line.strip() for line in f.read().split('\n')]
-    with open('./metadata/test_list1.txt',"r") as f:
+    with open('./metadata/test_list1.txt', "r") as f:
         testList = [line.strip() for line in f.read().split('\n')]
 
     with open('./metadata/Data_Entry_2017_v2020UPDATED.csv') as csvfile1:
@@ -83,35 +83,30 @@ def main():
                 testLabels.append(util.convertfromNameOfDiseazeToOneHot(row[1]))
                 testLabelsString.append(row[1])
 
-    print(f"There are {len(trainingList) +len(testList) } images images in total loaded .")
-    print(f"There are {len(trainigLabels)  + len(testLabels)   } labels loaded.")
+    print(f"There are {len(trainingList) + len(testList)} images images in total loaded .")
+    print(f"There are {len(trainigLabels) + len(testLabels)} labels loaded.")
     print("TOP")
 
     CLASS_NAMES = ['Atelectasis', 'Cardiomegaly', 'Effusion', 'Infiltration', 'Mass', 'Nodule', 'Pneumonia',
                    'Pneumothorax', 'Consolidation', 'Edema', 'Emphysema', 'Fibrosis', 'Pleural_Thickening', 'Hernia']
 
-
-
     # traindf1 = pd.read_csv("./metadata/Data_Entry_2017_v2020UPDATED.csv", dtype = str)
 
     trainigLabels = tf.convert_to_tensor(np.array(trainigLabels)).numpy()
-    train_dict  = { "pic":trainingImgages}
+    train_dict = {"pic": trainingImgages}
 
-
-    traindf = pd.DataFrame(data=  train_dict)
-    trainDfOneHot =  pd.DataFrame(trainigLabels,columns =CLASS_NAMES )
+    traindf = pd.DataFrame(data=train_dict)
+    trainDfOneHot = pd.DataFrame(trainigLabels, columns=CLASS_NAMES)
     # traindf=pd.concat([traindf, trainDfOneHot] )
     traindf = traindf.join(trainDfOneHot)
     # traindf =  pd.concat([traindf, trainDfOneHot], keys=['pic', 'label'], axis=1)
 
-
-
-
-    datagen = ImageDataGenerator(rescale=1. / 255., rotation_range=20)
+    datagen = ImageDataGenerator(preprocessing_function=util.preProcessImage,
+                                 rescale=1. / 255., rotation_range=20)
     train_generator = datagen.flow_from_dataframe(
         dataframe=traindf,
         x_col="pic",
-        y_col= CLASS_NAMES,
+        y_col=CLASS_NAMES,
         subset="training",
         batch_size=8,
         seed=42,
@@ -119,14 +114,14 @@ def main():
         class_mode="raw",
         target_size=(512, 512))
 
-    test_dict= {'pic': testListImages }
-    testdf = pd.DataFrame(data = test_dict)
+    test_dict = {'pic': testListImages}
+    testdf = pd.DataFrame(data=test_dict)
     testLabels = tf.convert_to_tensor(np.array(testLabels)).numpy()
     testDfOneHot = pd.DataFrame(testLabels, columns=CLASS_NAMES)
     # testdf = pd.concat([testdf, testDfOneHot], keys=['pic', 'label'], axis=1)
-    testdf= testdf.join(testDfOneHot)
-    datagen = ImageDataGenerator(rescale=1. / 255., rotation_range=20)
-    validation_generator = datagen.flow_from_dataframe(
+    testdf = testdf.join(testDfOneHot)
+    datagen1 = ImageDataGenerator(preprocessing_function=util.preProcessImage,rescale=1. / 255., rotation_range=20)
+    validation_generator = datagen1.flow_from_dataframe(
         dataframe=testdf,
         x_col="pic",
         y_col=CLASS_NAMES,
@@ -135,8 +130,6 @@ def main():
         shuffle=True,
         class_mode="raw",
         target_size=(512, 512))
-
-
 
     # for image in trainingList:
     #     image_path = os.path.join(imageLocation, image)
@@ -191,10 +184,11 @@ def main():
         #                     steps_per_epoch=steps_per_epoch, validation_data=testDataset,
         #                     validation_steps=validation_steps, epochs=EPOCHS,
         #                     callbacks=[reduce_lr_plateau, model_checkpoint_callback])
+        model.load_weights(filepath="./checkpoint/checkpoint.h5")
         history = model.fit_generator(
-            generator=train_generator,steps_per_epoch=steps_per_epoch, validation_data=validation_generator,
-                            validation_steps=validation_steps, epochs=EPOCHS,
-                            callbacks=[reduce_lr_plateau, model_checkpoint_callback]
+            generator=train_generator, steps_per_epoch=steps_per_epoch, validation_data=validation_generator,
+            validation_steps=validation_steps, epochs=EPOCHS,
+            callbacks=[reduce_lr_plateau, model_checkpoint_callback]
         )
     else:
         model.load_weights(checkpoint_filepath)
@@ -408,8 +402,7 @@ def downloadAndPrepareWorkspace():
     originalDriveLink = 'https://drive.google.com/file/d/1QcGwCPZDl-soNlKXaCQcVFMhYnD1dP-U/view?usp=sharing'
     driveLink = 'https://drive.google.com/uc?export=download&id=1K-_oj7G9sLqTOt_IKoy6TanNKDLJ_occ'
 
-
-    driveLink ="https://drive.google.com/uc?export=download&id=1PPg_ZipYXbaegqfb92pvQ5sZYlLv4YCH"
+    driveLink = "https://drive.google.com/uc?export=download&id=1PPg_ZipYXbaegqfb92pvQ5sZYlLv4YCH"
     # GoogleDriveDownloader.download_file_from_google_drive(file_id='1QcGwCPZDl-soNlKXaCQcVFMhYnD1dP-U',
     #                                 dest_path='./temp',
     #                                 unzip=True)

@@ -76,6 +76,44 @@ def load_image_into_numpy_array(path):
     image = ((tf.cast(copyChannels, tf.float32) / 255.0) - 0.449) / 0.226
     return image
 
+
+def preProcessImage(image):
+    """Load an image from file into a numpy array.
+
+    Puts image into numpy array to feed into tensorflow graph.
+    Note that by convention we put it into a numpy array with shape
+    (height, width, channels), where channels=3 for RGB.
+
+    Args:
+    path: a file path.
+
+    Returns:
+    uint8 numpy array with shape (img_height, img_width, 3)
+    """
+
+
+
+
+    # return np.array(image.getdata()).reshape(
+    #     (im_height, im_width)).astype(np.uint8)
+    # in the paper they resized to 512 512 and normalized with the mean and Variance of Imagenet
+    # Before inputting the images into the network,
+    # the images were resized to 512 pixels by 512 pixels and normalized based on the mean and standard deviation (SD) of images in the ImageNet training set.
+    # layer = tensorflow.keras.experimental.preprocessing.Normalization(mean=[0.485, 0.456, 0.406],
+    #                                                                   variance=[np.square(0.299),
+    #                                                                             np.square(0.224),
+    #                                                                             np.square(0.225)])
+    # https://stackoverflow.com/questions/67480507/tensorflow-equivalent-of-pytorchs-transforms-normalize --we use from here the 3rd option of taking the average Std and mean
+    # 255 because 8 bit  0.449 avg mean 0.226 avg std
+
+    # image = np.array(image.getdata()).reshape((im_height, im_width)).astype(np.uint8)
+    # image = ((image /255.0)-0.449)/0.226
+
+
+    # image = ((tf.cast(np.array(image), tf.float32) / 255.0) - 0.449) / 0.226
+    image = (image - 0.449) / 0.226
+    return image
+
     # def rgbOrrgba2gray(rgb):
     #     r, g, b = rgb[:, :, 0], rgb[:, :, 1], rgb[:, :, 2]
     #     gray = 0.2989 * r + 0.5870 * g + 0.1140 * b
