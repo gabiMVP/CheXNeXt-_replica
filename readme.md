@@ -25,11 +25,9 @@ Particular problems faced in the implementation:
 We are not told to split the dataset in train and test sets based a percentange but are given a list of training and validation picture names,
 this means the clasic flowFromDirectory would not work since it would be a hassle to make code to create 14 subdirectories based on the dataset.
 I tried 2 approaches before the final one to load the data :
-1.Put the pictures as numpy arrays in ndArrays the create a Dataset object from the arrays  --- bad approach as the dataset is too big and we get out of memory error 
-2.Use ImageDataGenerator with flow_from_dataframe  -- very good for this problem as we can just pass the list of picture names with the directory and it will load them dinamically in batches,
-	this solved the problem of not wanting to create 14 subdirectories and using flow_from_Directory since we get the same functionality and the memory problem
-3.Final approach to load the data was tf.data.Dataset.from_tensor_slices((trainingImgages, trainigLabels))  where trainingImgages are the names of the images, 
-then calling map to a function that loads the images as tensor based on the image name 
+*Put the pictures as numpy arrays in ndArrays the create a Dataset object from the arrays  --- bad approach as the dataset is too big and we get out of memory error 
+*Use ImageDataGenerator with flow_from_dataframe  -- very good for this problem as we can just pass the list of picture names with the directory and it will load them dinamically in batches, this solved the problem of not wanting to create 14 subdirectories and using flow_from_Directory since we get the same functionality and the memory problem
+*Final approach to load the data was tf.data.Dataset.from_tensor_slices((trainingImgages, trainigLabels))  where trainingImgages are the names of the images, then calling map to a function that loads the images as tensor based on the image name 
 
 
 To train the model I used google Colab
