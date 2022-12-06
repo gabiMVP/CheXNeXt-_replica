@@ -1,0 +1,520 @@
+# Install this package to use Colab's GPU for training
+!apt install --allow-change-held-packages libcudnn8=8.4.1.50-1+cuda11.6
+!pip install gputil
+!apt install psutil
+!apt install humanize    
+import psutil
+import humanize
+import os
+import GPUtil as GPU
+GPUs = GPU.getGPUs()
+gpu = GPUs[0]
+gpu_info = !nvidia-smi
+gpu_info = '\n'.join(gpu_info)
+if gpu_info.find('failed') >= 0:
+  print('Not connected to a GPU')
+else:
+  print(gpu_info)
+process = psutil.Process(os.getpid())
+print("Gen RAM Free: " + humanize.naturalsize( psutil.virtual_memory().available ), " I Proc size: " + humanize.naturalsize( process.memory_info().rss))
+print('GPU RAM Free: {0:.0f}MB | Used: {1:.0f}MB | Util {2:3.0f}% | Total {3:.0f}MB'.format(gpu.memoryFree, gpu.memoryUsed, gpu.memoryUtil*100, gpu.memoryTotal))
+
+from google.colab import drive
+# drive.mount('/content/drive/MyDrive/trainingSet/temp/')
+drive.mount('/content/drive/')
+import math
+import os
+import tarfile
+import zipfile
+import matplotlib.pyplot as plt
+import numpy as np
+import scipy as sp
+import tensorflow as tf
+import shutil
+import csv
+import zipfile
+import cv2
+from google_drive_downloader import GoogleDriveDownloader
+from keras.applications.densenet import DenseNet121
+from keras.callbacks import ReduceLROnPlateau, ModelCheckpoint
+from tensorflow.keras import layers
+from tensorflow.keras import Model
+from tensorflow.keras.optimizers import RMSprop
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from tensorflow.keras.preprocessing.image import img_to_array, load_img
+from tensorflow.keras.applications.inception_v3 import InceptionV3
+import scipy
+import urllib.request
+import pandas as pd
+from PIL.Image import Image
+from PIL import ImageFile
+ImageFile.LOAD_TRUNCATED_IMAGES = True
+import os
+import random
+import zipfile
+import io
+import scipy.misc
+import numpy as np
+import imageio
+from six import BytesIO
+from PIL import Image, ImageDraw, ImageFont
+from sklearn.metrics import confusion_matrix, multilabel_confusion_matrix, ConfusionMatrixDisplay, roc_auc_score, \
+    roc_curve, auc
+from tensorflow.python.util.compat import as_text
+import seaborn as sns
+
+
+BATCH_SIZE = 8
+
+import glob
+
+N_CLASSES = 14
+CLASS_NAMES = ['Atelectasis', 'Cardiomegaly', 'Effusion', 'Infiltration', 'Mass', 'Nodule', 'Pneumonia',
+               'Pneumothorax', 'Consolidation', 'Edema', 'Emphysema', 'Fibrosis', 'Pleural_Thickening', 'Hernia']
+
+def convertFromPathAndLabelToTensor(imagepath, label):
+    image=load_image_into_numpy_array(imagepath)
+    return image, label
+
+def convertfromNameOfDiseazeToOneHot(rowDataset):
+    indexes = []
+    try:
+        for x in rowDataset.split("|"):
+            indexes.append(CLASS_NAMES.index(x))
+        onehot = tf.reduce_max(tf.one_hot(indexes, N_CLASSES, dtype=tf.float32), axis=0)
+
+        # return list(onehot.numpy().astype(np.int))
+        return onehot
+    except ValueError:
+        # return list(tf.convert_to_tensor(np.zeros(14), dtype=tf.int32).numpy().astype(np.int))
+        return tf.convert_to_tensor(np.zeros(14), tf.float32)
+
+def load_image_into_numpy_array(path):
+    img = tf.io.read_file(path)
+    image1 = tf.image.decode_png(img, channels=3)
+    img = tf.image.resize(image1,size=(512,512),preserve_aspect_ratio=True,method='nearest')
+    #
+    # img = tf.repeat(img, repeats=[3], axis=-1)
+    # plt.imshow(image1.numpy())
+    # plt.imshow(img.numpy())
+    image = ((tf.cast(img, tf.float32) / 255.0) - 0.449) / 0.226
+    #plt.imshow(image.numpy())
+    return image
+
+def load_image_into_numpy_array1(path):
+    """Load an image from file into a numpy array.
+
+    Puts image into numpy array to feed into tensorflow graph.
+    Note that by convention we put it into a numpy array with shape
+    (height, width, channels), where channels=3 for RGB.
+
+    Args:
+    path: a file path.
+
+    Returns:
+    uint8 numpy array with shape (img_height, img_width, 3)
+    """
+
+    img_data = tf.io.gfile.GFile(path, 'rb').read()
+    image = Image.open(io.BytesIO(img_data))
+    bands = Image.Image.getbands(image)
+    (im_width, im_height) = image.size
+    # we have some images that are RGBA so we need to standardize them to 1 channel like the rest
+    if (len(bands) > 3):
+        image = image.convert('1')
+
+    # return np.array(image.getdata()).reshape(
+    #     (im_height, im_width)).astype(np.uint8)
+    # in the paper they resized to 512 512 and normalized with the mean and Variance of Imagenet
+    # Before inputting the images into the network,
+    # the images were resized to 512 pixels by 512 pixels and normalized based on the mean and standard deviation (SD) of images in the ImageNet training set.
+    # layer = tensorflow.keras.experimental.preprocessing.Normalization(mean=[0.485, 0.456, 0.406],
+    #                                                                   variance=[np.square(0.299),
+    #                                                                             np.square(0.224),
+    #                                                                             np.square(0.225)])
+    #https://stackoverflow.com/questions/67480507/tensorflow-equivalent-of-pytorchs-transforms-normalize --we use from here the 3rd option of taking the average Std and mean
+    #255 because 8 bit  0.449 avg mean 0.226 avg std
+    image = image.resize((512, 512))
+    # image = np.array(image.getdata()).reshape((im_height, im_width)).astype(np.uint8)
+    # image = ((image /255.0)-0.449)/0.226
+    image = np.array(image.getdata()).reshape((512, 512)).astype(np.uint8)
+    copyChannels = np.zeros(shape=(512,512,3), dtype=np.uint8)
+    copyChannels[:,:,0] = image
+    copyChannels[:, :, 1] = image
+    copyChannels[:, :, 2] = image
+    # image = ((tf.cast(np.array(image), tf.float32) / 255.0) - 0.449) / 0.226
+    image = ((tf.cast(copyChannels, tf.float32) / 255.0) - 0.449) / 0.226
+    return image
+
+def multi_category_focal_loss2(gamma=2., alpha=.25):
+    """
+    focal loss for multi category of multi label problem
+    适用于多分类或多标签问题的focal loss
+    alpha控制真值y_true为1/0时的权重
+        1的权重为alpha, 0的权重为1-alpha
+    当你的模型欠拟合，学习存在困难时，可以尝试适用本函数作为loss
+    当模型过于激进(无论何时总是倾向于预测出1),尝试将alpha调小
+    当模型过于惰性(无论何时总是倾向于预测出0,或是某一个固定的常数,说明没有学到有效特征)
+        尝试将alpha调大,鼓励模型进行预测出1。
+    Usage:
+     model.compile(loss=[multi_category_focal_loss2(alpha=0.25, gamma=2)], metrics=["accuracy"], optimizer=adam)
+    """
+    epsilon = 1.e-7
+    gamma = float(gamma)
+    alpha = tf.constant(alpha, dtype=tf.float32)
+
+    def multi_category_focal_loss2_fixed(y_true, y_pred):
+        print(y_true)
+        print(y_pred)
+        y_true = tf.cast(y_true, tf.float32)
+        y_pred = tf.clip_by_value(y_pred, epsilon, 1. - epsilon)
+
+        alpha_t = y_true * alpha + (tf.ones_like(y_true) - y_true) * (1 - alpha)
+        y_t = tf.multiply(y_true, y_pred) + tf.multiply(1 - y_true, 1 - y_pred)
+        ce = -tf.math.log(y_t)
+        weight = tf.pow(tf.subtract(1., y_t), gamma)
+        fl = tf.multiply(tf.multiply(weight, ce), alpha_t)
+        loss = tf.reduce_mean(fl)
+        return loss
+
+    return multi_category_focal_loss2_fixed
+    # def rgbOrrgba2gray(rgb):
+    #     r, g, b = rgb[:, :, 0], rgb[:, :, 1], rgb[:, :, 2]
+    #     gray = 0.2989 * r + 0.5870 * g + 0.1140 * b
+    #
+    #     return gray
+
+
+def getDataset(images, oneHotLabels, bboxList):
+    # not all have BBOX so no dataset object , have to put as none ?
+    # dataset = tf.data.Dataset.from_tensor_slices( (images,oneHotLabels,bboxList))
+    # 1800 1800 but still no , need to convert the images or everything to tensor
+
+    dataset = tf.data.Dataset.from_tensor_slices((images, oneHotLabels))
+    dataset = dataset.shuffle(5000, reshuffle_each_iteration=True)
+    dataset = dataset.repeat()  # Mandatory for Keras for now
+    dataset = dataset.batch(BATCH_SIZE,
+                            drop_remainder=True)  # drop_remainder is important on TPU, batch size must be fixed
+    dataset = dataset.prefetch(
+        -1)  # fetch next batches while training on the current one (-1: autotune prefetch buffer size)
+    # xmin = tf.random.uniform((), 0, 48, dtype=tf.int32)
+    # ymin = tf.random.uniform((), 0, 48, dtype=tf.int32)
+    # image = tf.reshape(image, (28, 28, 1,))
+    # image = tf.image.pad_to_bounding_box(image, ymin, xmin, 75, 75)
+    # image = tf.cast(image, tf.float32) / 255.0
+    # xmin = tf.cast(xmin, tf.float32)
+    # ymin = tf.cast(ymin, tf.float32)
+    #
+    # xmax = (xmin + 28) / 75
+    # ymax = (ymin + 28) / 75
+    # xmin = xmin / 75
+    # ymin = ymin / 75
+    # return image, (tf.one_hot(label, 10), [xmin, ymin, xmax, ymax])
+    return dataset
+
+
+
+
+def vizualizeCam(actual_label, model, image_path):
+    actualImageforDisplayNotNormalized = load_image_into_numpy_arrayNoNormalized(image_path).numpy()
+    sample_image = load_image_into_numpy_array(image_path).numpy()
+    sample_image_processed = np.expand_dims(sample_image, axis=0)
+    pred_label = model.predict(sample_image_processed)[0]
+    heatmap = get_CAM(model, sample_image_processed, actual_label, layer_name='bn')
+    heatmap = cv2.resize(heatmap, (sample_image.shape[0], sample_image.shape[1]))
+    heatmap = heatmap * 255
+    heatmap = np.clip(heatmap, 0, 255).astype(np.uint8)
+    heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_HOT)
+    converted_img = sample_image
+    super_imposed_image = cv2.addWeighted(converted_img, 0.8, heatmap.astype('float32'), 2e-3, 0.0)
+    sample_activation = get_CAM_simple(model, sample_image_processed)
+    f, ax = plt.subplots(2, 2, figsize=(40, 20))
+
+    CLASS_NAMES = ['Atelectasis', 'Cardiomegaly', 'Effusion', 'Infiltration', 'Mass', 'Nodule', 'Pneumonia',
+                   'Pneumothorax', 'Consolidation', 'Edema', 'Emphysema', 'Fibrosis', 'Pleural_Thickening', 'Hernia']
+    data = {'lables': CLASS_NAMES,
+            'Actual_Labeles': actual_label,
+            'Predicted_label:': pred_label
+            }
+    printDf = pd.DataFrame(data=data)
+
+
+    # f.legend(printDf.to_markdown())
+    ax[0, 0].imshow(actualImageforDisplayNotNormalized)
+    ax[0, 0].set_title("Original image ")
+    ax[0, 0].axis('off')
+    # ax[0, 0].set_title(f"True label: {actual_label} \n Predicted label: {pred_label}")
+    ax[0, 1].imshow(sample_activation)
+    ax[0, 1].set_title("Class activation map")
+    ax[0, 1].axis('off')
+    ax[1, 0].imshow(heatmap)
+    ax[1, 0].set_title("Heat Map")
+    ax[1, 0].axis('off')
+    ax[1, 1].imshow(super_imposed_image)
+    ax[1, 1].set_title("Activation map superimposed")
+    ax[1, 1].axis('off')
+    plt.subplots_adjust(wspace=0.40, hspace=0.1)
+    f.suptitle(printDf.to_markdown())
+    # plt.tight_layout()
+    plt.show()
+
+
+def get_CAM(model, processed_image, actual_label, layer_name='bn'):
+    # we used the last batchNormalization Layer of the Densenet Model where
+    # layer_name = 'conv5_block16_concat'
+    x = model.get_layer(layer_name)
+    model_grad = Model([model.inputs],
+                       [model.get_layer(layer_name).output, model.output])
+
+    with tf.GradientTape() as tape:
+        conv_output_values, predictions = model_grad(processed_image)
+
+        # watch the conv_output_values
+        tape.watch(conv_output_values)
+
+        expected_output = actual_label
+        predictions = predictions[0]
+
+        loss = multi_category_focal_loss2(gamma=2., alpha=.25)(expected_output, predictions)
+
+
+    # nu merge bine bp aici
+    # get the gradient of the loss with respect to the outputs of the last conv layer
+    grads_values = tape.gradient(loss, conv_output_values)
+    # grads_values = tf.keras.backend.mean(grads_values, axis=(0, 1, 2))
+
+    conv_output_values = np.squeeze(conv_output_values.numpy())
+    grads_values = np.squeeze(grads_values)
+
+    # weight the convolution outputs with the computed gradients
+    for i in range(1024):
+        # conv_output_values[:, :, i] *= grads_values[i]
+        conv_output_values[:, :, i] *= grads_values[:, :, i]
+    heatmap = np.mean(conv_output_values, axis=-1)
+
+    heatmap = np.maximum(heatmap, 0)
+    heatmap /= heatmap.max()
+
+    del model_grad, conv_output_values, grads_values, loss
+
+    return heatmap
+
+
+def get_CAM_simple(model, processed_image):
+    # we used the last batchNormalization Layer of the Densenet Model where
+    layer_name = 'bn'
+
+    vis_model = Model([model.inputs],
+                      [model.get_layer(layer_name).output, model.layers[-1].output])
+    features, predictions = vis_model.predict(processed_image)
+    features = features[0]
+    gap_weights = model.layers[-1].get_weights()[0]
+    class_activation_features = sp.ndimage.zoom(features, (512 / 16, 512 / 16, 1), order=2)
+    # compute the intensity of each feature in the CAM
+    predicted = np.argmax(predictions)
+    # We get the weights for diseaze x then dot with the features the final conv layer extracted(batch normalization of different conv layers here)
+    #Optional make a vector of predicted diseazes then get the weiths for them all . do the dot for each and add
+    class_activation_weights = gap_weights[:, predicted]
+    cam_output = np.dot(class_activation_features, class_activation_weights)
+    # cam_output = cam_output.mean(axis=-1)
+    # cam_output -= cam_output.mean(axis=-1)
+    # cam_output /= cam_output.std()
+    # cam_output *= 255
+    # cam_output = np.clip(cam_output, 0, 255).astype(np.uint8)
+
+    return cam_output
+
+
+def feature_extractor(inputs):
+    feature_extractor = DenseNet121(weights='imagenet', include_top=False, input_shape=(512, 512, 3))(inputs)
+
+    return feature_extractor
+
+
+def classifier(inputs):
+    # add flatten larye because  8, 16, 16, 14 shape of final model before
+    averagePool = tf.keras.layers.GlobalAveragePooling2D()(inputs)
+    x = tf.keras.layers.Dense(14, activation='sigmoid', name="classification")(averagePool)
+    return x
+
+
+def final_model(inputs):
+    # resize = tf.keras.layers.UpSampling2D(size=(7,7))(inputs)  Usedfull if rezise
+
+    densenet_feature_extractor = feature_extractor(inputs)
+    classification_output = classifier(densenet_feature_extractor)
+
+    return classification_output
+
+
+def define_compile_model():
+    inputs = tf.keras.layers.Input(shape=(512, 512, 3))
+
+    feature_extractor = DenseNet121(weights='imagenet', include_top=False, input_shape=(512, 512, 3))
+    averagePool = tf.keras.layers.GlobalAveragePooling2D()(feature_extractor.output)
+    output = tf.keras.layers.Dense(14, activation='sigmoid', name="classification")(averagePool)
+
+    # binary_crossentropy rupe
+    # loss = tfr.keras.losses.SigmoidCrossEntropyLoss()
+    # classification_output = final_model(inputs)
+    METRICS = [
+        tf.keras.metrics.TruePositives(name='tp'),
+        tf.keras.metrics.FalsePositives(name='fp'),
+        tf.keras.metrics.TrueNegatives(name='tn'),
+        tf.keras.metrics.FalseNegatives(name='fn'),
+        tf.keras.metrics.BinaryAccuracy(name='Binary Accuracy'),
+        tf.keras.metrics.CategoricalAccuracy(name='Categorical Accuracy'),
+        tf.keras.metrics.Precision(name='precision'),
+        tf.keras.metrics.Recall(name='recall'),
+        tf.keras.metrics.AUC(name='auc'),
+        tf.keras.metrics.AUC(name='prc', curve='PR'),  # precision-recall curve
+    ]
+    model = tf.keras.Model(inputs=feature_extractor.input, outputs=output)
+    optimizer = tf.keras.optimizers.Adam(learning_rate=0.0001)
+    model.compile(optimizer=optimizer,
+                  # loss=[multi_category_focal_loss2(alpha=0.25, gamma=2)],
+                  loss='binary_crossentropy',
+                  metrics=METRICS)
+
+    return model
+
+
+def downloadAndPrepareWorkspace():
+  
+    # Define the training and validation base directories
+    train_dir = './dataset/training'
+    source_path = './'
+    source_list_names = os.listdir(source_path)
+    temp_path = os.path.join(source_path, 'temp')
+    images_path = os.path.join(source_path, 'images')
+    metadata_path = os.path.join(source_path, 'metadata')
+    checkpoint_path = os.path.join(source_path, 'checkpoint')
+    checkpointExists = os.path.exists(checkpoint_path)
+    tempAlreadyExists = os.path.exists(temp_path)
+    metaDataAlreadyExists = os.path.exists(metadata_path)
+    ImagesDataAlreadyExists= os.path.exists(images_path)
+    if not tempAlreadyExists:
+        os.makedirs(temp_path)
+    if not metaDataAlreadyExists:
+        os.makedirs(metadata_path)
+    if not checkpointExists:
+        os.makedirs(checkpoint_path)
+    if not ImagesDataAlreadyExists:
+        os.makedirs(images_path)    
+    # URLs for the zip files
+ 
+
+
+def preProcessImage(image):
+    """Load an image from file into a numpy array.
+
+    Puts image into numpy array to feed into tensorflow graph.
+    Note that by convention we put it into a numpy array with shape
+    (height, width, channels), where channels=3 for RGB.
+
+    Args:
+    path: a file path.
+
+    Returns:
+    uint8 numpy array with shape (img_height, img_width, 3)
+    """
+
+
+
+
+    # return np.array(image.getdata()).reshape(
+    #     (im_height, im_width)).astype(np.uint8)
+    # in the paper they resized to 512 512 and normalized with the mean and Variance of Imagenet
+    # Before inputting the images into the network,
+    # the images were resized to 512 pixels by 512 pixels and normalized based on the mean and standard deviation (SD) of images in the ImageNet training set.
+    # layer = tensorflow.keras.experimental.preprocessing.Normalization(mean=[0.485, 0.456, 0.406],
+    #                                                                   variance=[np.square(0.299),
+    #                                                                             np.square(0.224),
+    #                                                                             np.square(0.225)])
+    # https://stackoverflow.com/questions/67480507/tensorflow-equivalent-of-pytorchs-transforms-normalize --we use from here the 3rd option of taking the average Std and mean
+    # 255 because 8 bit  0.449 avg mean 0.226 avg std
+
+    # image = np.array(image.getdata()).reshape((im_height, im_width)).astype(np.uint8)
+    # image = ((image /255.0)-0.449)/0.226
+
+
+    # image = ((tf.cast(np.array(image), tf.float32) / 255.0) - 0.449) / 0.226
+    image = (image - 0.449) / 0.226
+    return image
+
+def load_image_into_numpy_arrayNoNormalized(path):
+    img = tf.io.read_file(path)
+    image1 = tf.image.decode_png(img, channels=3)
+    img = tf.image.resize(image1, size=(512, 512), preserve_aspect_ratio=True, method='nearest')
+    #
+    # img = tf.repeat(img, repeats=[3], axis=-1)
+    # plt.imshow(image1.numpy())
+    # plt.imshow(img.numpy())
+    # image = (tf.cast(img, tf.float32))
+    # plt.imshow(image)
+    return img
+
+def plot_cm(testLabels, predictions, p=0.5):
+    labels = CLASS_NAMES
+
+    conf_mat_dict = {}
+
+    for label_col in range(len(labels)):
+        y_true_label = testLabels[:, label_col]
+        y_pred_label = predictions[:, label_col]
+        y_pred_label = np.where(y_pred_label > p, 1, 0)
+        cm = confusion_matrix(y_pred=y_pred_label, y_true=y_true_label, labels=[0, 1])
+        conf_mat_dict[labels[label_col]] = cm
+
+    f, axes = plt.subplots(2, 7, figsize=(40, 20))
+    m = 0
+    for label, matrix in conf_mat_dict.items():
+        print("Confusion matrix for label {}:".format(label))
+        print(matrix)
+        j = m
+        i = m
+        i = math.floor(i / 7)
+        j = j % 7
+        # ia cm si fa
+        # sensitivity = Number of Correctly Predicted Positives / Number of Actual Positives
+        # Specificity =Number of Correctly Predicted Negatives / Number of Actual Negatives
+        tp = matrix[1][1]
+        tn = matrix[0][0]
+        fn = matrix[1][0]
+        fp = matrix[0][1]
+        sensitivity = round(tp / (tp + fn),2)
+        specificity = round(tn / (tn + fp),2)
+
+        disp = ConfusionMatrixDisplay(matrix,
+                                      display_labels=None)
+        disp.plot(ax=axes[i][j], xticks_rotation=45)
+
+        disp.ax_.set_title(label + ' \n sensitivity ' +  str(sensitivity) + ' \nspecificity ' + str(specificity))
+        m += 1
+
+    plt.subplots_adjust(wspace=0.40, hspace=0.1)
+    plt.show()
+
+def multiclass_roc_auc_score(testLabels, predictions, average="macro"):
+    labels = CLASS_NAMES
+
+    f, axes = plt.subplots(2, 7, figsize=(60, 30))
+    m = 0
+    for label_col in range(len(labels)):
+        y_true_label = testLabels[:, label_col]
+        y_pred_label = predictions[:, label_col]
+        j = m
+        i = m
+        i = math.floor(i / 7)
+        j = j % 7
+
+        fp, tp, thresholds = roc_curve(y_true_label.astype(int), y_pred_label)
+
+        axes[i][j].plot(fp, tp, label='%s (AUC:%0.2f)' % (labels[m], auc(fp, tp)))
+        axes[i][j].legend()
+        axes[i][j].set_xlabel('False Positive Rate')
+        axes[i][j].set_ylabel('True Positive Rate')
+        m += 1
+    plt.subplots_adjust(wspace=0.40, hspace=0.1)
+    plt.show()
+

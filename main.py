@@ -2,6 +2,8 @@ import math
 import os
 import tarfile
 import zipfile
+from random import random
+import tabulate
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy as sp
@@ -11,17 +13,14 @@ import csv
 import wget
 import zipfile
 import cv2
+import tensorflow_ranking as tfr
 from google_drive_downloader import GoogleDriveDownloader
 from keras.applications.densenet import DenseNet121
 from keras.callbacks import ReduceLROnPlateau, ModelCheckpoint
-from sklearn.preprocessing import OneHotEncoder
-from tensorflow.keras import layers
+from sklearn.preprocessing import OneHotEncoder, LabelEncoder
 from tensorflow.keras import Model
 from tensorflow.keras.optimizers import RMSprop
-from tensorflow.keras.preprocessing.image import ImageDataGenerator
-from tensorflow.keras.preprocessing.image import img_to_array, load_img
 from tensorflow.keras.applications.inception_v3 import InceptionV3
-import scipy
 import urllib.request
 import pandas as pd
 import Utils as util
@@ -86,50 +85,69 @@ def main():
     print(f"There are {len(trainingList) + len(testList)} images images in total loaded .")
     print(f"There are {len(trainigLabels) + len(testLabels)} labels loaded.")
     print("TOP")
+    BATCH_SIZE = 8
+    util.convertFromPathAndLabelToTensor(trainingImgages[0], testLabelsString[0])
+    trainDataset = tf.data.Dataset.from_tensor_slices((trainingImgages, trainigLabels))
+    trainDataset = trainDataset.map(util.convertFromPathAndLabelToTensor)
+    trainDataset = trainDataset.shuffle(5000, reshuffle_each_iteration=True)
+    trainDataset = trainDataset.repeat()  # Mandatory for Keras for now
+    trainDataset = trainDataset.batch(BATCH_SIZE,
+                                      drop_remainder=True)  # drop_remainder is important on TPU, batch size must be fixed
+    trainDataset = trainDataset.prefetch(
+        tf.data.AUTOTUNE)
+
+    testDataset = tf.data.Dataset.from_tensor_slices((testListImages, testLabels))
+    testDataset = testDataset.map(util.convertFromPathAndLabelToTensor)
+    # testDataset = testDataset.shuffle(5000, reshuffle_each_iteration=True)
+    # testDataset = testDataset.repeat()  # Mandatory for Keras for now
+    testDataset = testDataset.batch(BATCH_SIZE,
+                                    drop_remainder=True)  # drop_remainder is important on TPU, batch size must be fixed
+    testDataset = testDataset.prefetch(
+        tf.data.AUTOTUNE)
 
     CLASS_NAMES = ['Atelectasis', 'Cardiomegaly', 'Effusion', 'Infiltration', 'Mass', 'Nodule', 'Pneumonia',
                    'Pneumothorax', 'Consolidation', 'Edema', 'Emphysema', 'Fibrosis', 'Pleural_Thickening', 'Hernia']
 
     # traindf1 = pd.read_csv("./metadata/Data_Entry_2017_v2020UPDATED.csv", dtype = str)
-
-    trainigLabels = tf.convert_to_tensor(np.array(trainigLabels)).numpy()
-    train_dict = {"pic": trainingImgages}
-
-    traindf = pd.DataFrame(data=train_dict)
-    trainDfOneHot = pd.DataFrame(trainigLabels, columns=CLASS_NAMES)
+    #
+    # trainigLabels = tf.convert_to_tensor(np.array(trainigLabels)).numpy()
+    # train_dict = {"pic": trainingImgages}
+    #
+    # traindf = pd.DataFrame(data=train_dict)
+    # trainDfOneHot = pd.DataFrame(trainigLabels, columns=CLASS_NAMES)
     # traindf=pd.concat([traindf, trainDfOneHot] )
-    traindf = traindf.join(trainDfOneHot)
+    # traindf = traindf.join(trainDfOneHot)
     # traindf =  pd.concat([traindf, trainDfOneHot], keys=['pic', 'label'], axis=1)
 
-    datagen = ImageDataGenerator(preprocessing_function=util.preProcessImage,
-                                 rescale=1. / 255., rotation_range=20)
-    train_generator = datagen.flow_from_dataframe(
-        dataframe=traindf,
-        x_col="pic",
-        y_col=CLASS_NAMES,
-        subset="training",
-        batch_size=8,
-        seed=42,
-        shuffle=True,
-        class_mode="raw",
-        target_size=(512, 512))
-
-    test_dict = {'pic': testListImages}
-    testdf = pd.DataFrame(data=test_dict)
-    testLabels = tf.convert_to_tensor(np.array(testLabels)).numpy()
-    testDfOneHot = pd.DataFrame(testLabels, columns=CLASS_NAMES)
-    # testdf = pd.concat([testdf, testDfOneHot], keys=['pic', 'label'], axis=1)
-    testdf = testdf.join(testDfOneHot)
-    datagen1 = ImageDataGenerator(preprocessing_function=util.preProcessImage,rescale=1. / 255., rotation_range=20)
-    validation_generator = datagen1.flow_from_dataframe(
-        dataframe=testdf,
-        x_col="pic",
-        y_col=CLASS_NAMES,
-        batch_size=8,
-        seed=42,
-        shuffle=True,
-        class_mode="raw",
-        target_size=(512, 512))
+    # datagen = ImageDataGenerator(preprocessing_function=util.preProcessImage,
+    #                               rotation_range=20)
+    # train_generator = datagen.flow_from_dataframe(
+    #     dataframe=traindf,
+    #     x_col="pic",
+    #     y_col=CLASS_NAMES,
+    #     subset="training",
+    #     batch_size=8,
+    #     seed=42,
+    #     shuffle=True,
+    #     class_mode="raw",
+    #     target_size=(512, 512))
+    #
+    # test_dict = {'pic': testListImages}
+    # testdf = pd.DataFrame(data=test_dict)
+    # testLabels = tf.convert_to_tensor(np.array(testLabels)).numpy()
+    # testDfOneHot = pd.DataFrame(testLabels, columns=CLASS_NAMES)
+    # # testdf = pd.concat([testdf, testDfOneHot], keys=['pic', 'label'], axis=1)
+    # testdf = testdf.join(testDfOneHot)
+    # datagen1 = ImageDataGenerator(preprocessing_function=util.preProcessImage,rescale=1. / 255., rotation_range=20)
+    # validation_generator = datagen1.flow_from_dataframe(
+    #     dataframe=testdf,
+    #     x_col="pic",
+    #     y_col=CLASS_NAMES,
+    #     batch_size=8,
+    #     seed=42,
+    #     shuffle=True,
+    #     class_mode="raw",
+    #     target_size=(512, 512))
 
     # for image in trainingList:
     #     image_path = os.path.join(imageLocation, image)
@@ -154,6 +172,7 @@ def main():
     # that was decayed by a factor of 10 each time the loss on the tuning set plateaued after an epoch (a full pass over the training set).
     # In order to prevent the networks from overfitting,
     # early stopping was performed by saving the network after every epoch and choosing the saved network with the lowest loss on the tuning set.
+
     model = define_compile_model()
     model.summary()
     # densenetModel = model.layers[1]
@@ -163,60 +182,75 @@ def main():
     # steps_per_epoch =tf.data.experimental.cardinality(trainingDataset).numpy()
     # validation_steps=tf.data.experimental.cardinality(testDataset).numpy()
 
-    steps_per_epoch = math.ceil(len(trainigLabels) / BATCH_SIZE)
-    validation_steps = math.ceil(len(testLabels) / BATCH_SIZE)
+    steps_per_epoch = math.floor(len(trainigLabels) / BATCH_SIZE)
+    validation_steps = math.floor(len(testLabels) / BATCH_SIZE)
 
-    reduce_lr_plateau = ReduceLROnPlateau(monitor='val_accuracy', factor=0.5,
+    reduce_lr_plateau = ReduceLROnPlateau(monitor='precision', factor=0.5,
                                           patience=5, verbose=1, min_lr=0.00001)
     checkpoint_filepath = './checkpoint/'
 
     # checkpoint = ModelCheckpoint('model.h5', verbose=1, save_best_only=True)
     model_checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
-        filepath=checkpoint_filepath,
+
+        filepath='./checkpoint/model.{epoch:02d}-{precision:.4f}.h5',
         save_weights_only=True,
-        monitor='val_accuracy',
+        monitor='precision',
         mode='max',
         verbose=1,
         save_best_only=True)
-
+    trainModel = False
     if trainModel:
         # history = model.fit(trainingDataset,
         #                     steps_per_epoch=steps_per_epoch, validation_data=testDataset,
         #                     validation_steps=validation_steps, epochs=EPOCHS,
         #                     callbacks=[reduce_lr_plateau, model_checkpoint_callback])
-        model.load_weights(filepath="./checkpoint/checkpoint.h5")
-        history = model.fit_generator(
-            generator=train_generator, steps_per_epoch=steps_per_epoch, validation_data=validation_generator,
+        model.load_weights(filepath="checkpoint/model.57-0.2152.h5")
+        # history = model.fit_generator(
+        #     generator=train_generator, steps_per_epoch=steps_per_epoch, validation_data=validation_generator,
+        #     validation_steps=validation_steps, epochs=EPOCHS,
+        #     callbacks=[reduce_lr_plateau, model_checkpoint_callback]
+        history = model.fit(
+            trainDataset, steps_per_epoch=steps_per_epoch, validation_data=testDataset,
             validation_steps=validation_steps, epochs=EPOCHS,
             callbacks=[reduce_lr_plateau, model_checkpoint_callback]
         )
+        model.save("CheXnetXt_replica_gabi")
     else:
-        model.load_weights(checkpoint_filepath)
+        model.load_weights(filepath="checkpoint/model.57-0.2152.h5")
+        eval = model.predict(testDataset, steps=validation_steps)
+        results = model.evaluate(testDataset, steps=validation_steps, verbose=2)
+        for name, value in zip(model.metrics_names, results):
+            print(name, ': ', value)
+        # images, labels = tuple(zip(*testDataset))
+        # labels = np.array(labels)
+        # y = np.concatenate([y for x, y in testDataset], axis=0)
+        testLabels = testLabels[:validation_steps * BATCH_SIZE]
+        testLabels = tf.convert_to_tensor(testLabels).numpy()
+        util.plot_cm(testLabels, eval)
+        util.multiclass_roc_auc_score(testLabels, eval)
 
-    loss, acc = model.evaluate_generator(validation_generator, steps=validation_steps, verbose=2)
-    print("Restored model, accuracy: {:5.2f}%".format(100 * acc))
-    model.save("CheXnetXt_replica_gabi")
+        # add heat maps and viz util
+        # To generate the CAMs, images were fed into the fully trained network
+        # and the feature maps from the final convolutional layer were extracted
+        # A map of the most salient features used in classifying the image
+        # as having a specified pathology was computed by taking the weighted sum
+        # of the feature maps using their associated weights in the fully connected layer
+        # select all the layers for which you want to visualize the outputs and store it in a list
+        #     outputLastConv = model.get_layer('bn').output
+        #     vis_model = Model(model.input, outputLastConv)
 
-    # add heat maps and viz util
-    # To generate the CAMs, images were fed into the fully trained network
-    # and the feature maps from the final convolutional layer were extracted
-    # A map of the most salient features used in classifying the image
-    # as having a specified pathology was computed by taking the weighted sum
-    # of the feature maps using their associated weights in the fully connected layer
-    # select all the layers for which you want to visualize the outputs and store it in a list
-    #     outputLastConv = model.get_layer('bn').output
-    #     vis_model = Model(model.input, outputLastConv)
+        idx = 98
+        image_path = testListImages[idx]
+        actual_label = testLabels[idx]
 
-    idx = 0
-    sample_image = test_images_np[idx].numpy()
-    actual_label = testLabels[idx].numpy()
-
-    vizualizeCam(actual_label, model, sample_image)
+        vizualizeCam(actual_label, model, image_path)
 
 
-def vizualizeCam(actual_label, model, sample_image):
+def vizualizeCam(actual_label, model, image_path):
+    actualImageforDisplayNotNormalized = util.load_image_into_numpy_arrayNoNormalized(image_path).numpy()
+    sample_image = util.load_image_into_numpy_array(image_path).numpy()
     sample_image_processed = np.expand_dims(sample_image, axis=0)
-    pred_label = np.argmax(model.predict(sample_image_processed), axis=-1)[0]
+    pred_label = model.predict(sample_image_processed)[0]
     heatmap = get_CAM(model, sample_image_processed, actual_label, layer_name='bn')
     heatmap = cv2.resize(heatmap, (sample_image.shape[0], sample_image.shape[1]))
     heatmap = heatmap * 255
@@ -225,10 +259,22 @@ def vizualizeCam(actual_label, model, sample_image):
     converted_img = sample_image
     super_imposed_image = cv2.addWeighted(converted_img, 0.8, heatmap.astype('float32'), 2e-3, 0.0)
     sample_activation = get_CAM_simple(model, sample_image_processed)
-    f, ax = plt.subplots(2, 2, figsize=(15, 8))
-    ax[0, 0].imshow(sample_image)
-    ax[0, 0].set_title(f"True label: {actual_label} \n Predicted label: {pred_label}")
+    f, ax = plt.subplots(2, 2, figsize=(40, 20))
+
+    CLASS_NAMES = ['Atelectasis', 'Cardiomegaly', 'Effusion', 'Infiltration', 'Mass', 'Nodule', 'Pneumonia',
+                   'Pneumothorax', 'Consolidation', 'Edema', 'Emphysema', 'Fibrosis', 'Pleural_Thickening', 'Hernia']
+    data = {'lables': CLASS_NAMES,
+            'Actual_Labeles': actual_label,
+            'Predicted_label:': pred_label
+            }
+    printDf = pd.DataFrame(data=data)
+
+
+    # f.legend(printDf.to_markdown())
+    ax[0, 0].imshow(actualImageforDisplayNotNormalized)
+    ax[0, 0].set_title("Original image ")
     ax[0, 0].axis('off')
+    # ax[0, 0].set_title(f"True label: {actual_label} \n Predicted label: {pred_label}")
     ax[0, 1].imshow(sample_activation)
     ax[0, 1].set_title("Class activation map")
     ax[0, 1].axis('off')
@@ -238,7 +284,9 @@ def vizualizeCam(actual_label, model, sample_image):
     ax[1, 1].imshow(super_imposed_image)
     ax[1, 1].set_title("Activation map superimposed")
     ax[1, 1].axis('off')
-    plt.tight_layout()
+    plt.subplots_adjust(wspace=0.40, hspace=0.1)
+    f.suptitle(printDf.to_markdown())
+    # plt.tight_layout()
     plt.show()
 
 
@@ -257,9 +305,9 @@ def get_CAM(model, processed_image, actual_label, layer_name='bn'):
 
         expected_output = actual_label
         predictions = predictions[0]
-        loss = tf.keras.losses.categorical_crossentropy(
-            expected_output, predictions
-        )
+
+        loss = util.multi_category_focal_loss2(gamma=2., alpha=.25)(expected_output, predictions)
+
 
     # nu merge bine bp aici
     # get the gradient of the loss with respect to the outputs of the last conv layer
@@ -294,13 +342,16 @@ def get_CAM_simple(model, processed_image):
     gap_weights = model.layers[-1].get_weights()[0]
     class_activation_features = sp.ndimage.zoom(features, (512 / 16, 512 / 16, 1), order=2)
     # compute the intensity of each feature in the CAM
-    class_activation_weights = gap_weights
+    predicted = np.argmax(predictions)
+    # We get the weights for diseaze x then dot with the features the final conv layer extracted(batch normalization of different conv layers here)
+    #Optional make a vector of predicted diseazes then get the weiths for them all . do the dot for each and add
+    class_activation_weights = gap_weights[:, predicted]
     cam_output = np.dot(class_activation_features, class_activation_weights)
-    cam_output = cam_output.mean(axis=-1)
-    cam_output -= cam_output.mean(axis=-1)
-    cam_output /= cam_output.std()
-    cam_output *= 255
-    cam_output = np.clip(cam_output, 0, 255).astype(np.uint8)
+    # cam_output = cam_output.mean(axis=-1)
+    # cam_output -= cam_output.mean(axis=-1)
+    # cam_output /= cam_output.std()
+    # cam_output *= 255
+    # cam_output = np.clip(cam_output, 0, 255).astype(np.uint8)
 
     return cam_output
 
@@ -314,7 +365,7 @@ def feature_extractor(inputs):
 def classifier(inputs):
     # add flatten larye because  8, 16, 16, 14 shape of final model before
     averagePool = tf.keras.layers.GlobalAveragePooling2D()(inputs)
-    x = tf.keras.layers.Dense(14, activation='softmax', name="classification")(averagePool)
+    x = tf.keras.layers.Dense(14, activation='sigmoid', name="classification")(averagePool)
     return x
 
 
@@ -332,14 +383,28 @@ def define_compile_model():
 
     feature_extractor = DenseNet121(weights='imagenet', include_top=False, input_shape=(512, 512, 3))
     averagePool = tf.keras.layers.GlobalAveragePooling2D()(feature_extractor.output)
-    output = tf.keras.layers.Dense(14, activation='softmax', name="classification")(averagePool)
+    output = tf.keras.layers.Dense(14, activation='sigmoid', name="classification")(averagePool)
 
+    # binary_crossentropy rupe
+    # loss = tfr.keras.losses.SigmoidCrossEntropyLoss()
     # classification_output = final_model(inputs)
+    METRICS = [
+        tf.keras.metrics.TruePositives(name='tp'),
+        tf.keras.metrics.FalsePositives(name='fp'),
+        tf.keras.metrics.TrueNegatives(name='tn'),
+        tf.keras.metrics.FalseNegatives(name='fn'),
+        tf.keras.metrics.BinaryAccuracy(name='Binary Accuracy'),
+        tf.keras.metrics.CategoricalAccuracy(name='Categorical Accuracy'),
+        tf.keras.metrics.Precision(name='precision'),
+        tf.keras.metrics.Recall(name='recall'),
+        tf.keras.metrics.AUC(name='auc'),
+        tf.keras.metrics.AUC(name='prc', curve='PR'),  # precision-recall curve
+    ]
     model = tf.keras.Model(inputs=feature_extractor.input, outputs=output)
     optimizer = tf.keras.optimizers.Adam(learning_rate=0.0001)
     model.compile(optimizer=optimizer,
-                  loss='categorical_crossentropy',
-                  metrics=['accuracy'])
+                  loss=[util.multi_category_focal_loss2(alpha=0.25, gamma=2)],
+                  metrics=METRICS)
 
     return model
 
