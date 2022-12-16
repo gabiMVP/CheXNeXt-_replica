@@ -2,11 +2,11 @@
 
 Original paper link : https://journals.plos.org/plosmedicine/article?id=10.1371/journal.pmed.1002686
 
-###Dataset
+### Dataset
 
 Dataset provided by :https://nihcc.app.box.com/v/ChestXray-NIHCC?sortColumn=date&sortDirection=ASC
 
-###Citation
+### Citation
 I cite John Zech who achived great results using PyTorch.
 While trying to replicate CheXNeXt from the paper his code helped me figure out important things when I encoured problems 
 and gave me confidence that even such a hard problem can be done by one person
@@ -81,7 +81,7 @@ Besides, the normal confusion matrix I also print  the sensitivity and specifici
 In the AUC Scores I had lower results so far,not as good as CheXNet or as John Zech
 This leads me to believe the RandomFlip needs to be improved to offer a 50 % chance of inversion like in the paper and more searching in the hyperparameter space has to be performed
 
-###Some Examples
+### Some Examples
 I added CAM  + Saliency 
 
 <img src="./rez/HeatMapBestAUC.png" alt="Example 1 " />
