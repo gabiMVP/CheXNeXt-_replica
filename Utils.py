@@ -56,14 +56,19 @@ def load_image_into_numpy_array1(path):
 
     Returns:
     uint8 numpy array with shape (img_height, img_width, 3)
+
+    in the paper they resized to 512 512 and normalized with the mean and Variance of Imagenet
+    Before inputting the images into the network,
+    the images were resized to 512 pixels by 512 pixels and normalized based on the mean and standard deviation (SD) of images in the ImageNet training set.
+    layer = tensorflow.keras.experimental.preprocessing.Normalization(mean=[0.485, 0.456, 0.406],
+                                                                      variance=[np.square(0.299),
+                                                                                np.square(0.224),
+                                                                                np.square(0.225)])
+    https://stackoverflow.com/questions/67480507/tensorflow-equivalent-of-pytorchs-transforms-normalize --we use from here the 3rd option of taking the average Std and mean
+    255 because 8 bit  0.449 avg mean 0.226 avg std
+
+    I tried to read the image as Gray initially then copy the image in all 3 channels
     """
-
-    print(path)
-    print(path)
-    print(path)
-
-    # img_data = tf.io.gfile.GFile(path, 'rb').read()
-    print("top")
 
     image = tf.keras.utils.load_img(
         path,
@@ -81,17 +86,6 @@ def load_image_into_numpy_array1(path):
     if (len(bands) > 3):
         image = image.convert('1')
 
-    # return np.array(image.getdata()).reshape(
-    #     (im_height, im_width)).astype(np.uint8)
-    # in the paper they resized to 512 512 and normalized with the mean and Variance of Imagenet
-    # Before inputting the images into the network,
-    # the images were resized to 512 pixels by 512 pixels and normalized based on the mean and standard deviation (SD) of images in the ImageNet training set.
-    # layer = tensorflow.keras.experimental.preprocessing.Normalization(mean=[0.485, 0.456, 0.406],
-    #                                                                   variance=[np.square(0.299),
-    #                                                                             np.square(0.224),
-    #                                                                             np.square(0.225)])
-    # https://stackoverflow.com/questions/67480507/tensorflow-equivalent-of-pytorchs-transforms-normalize --we use from here the 3rd option of taking the average Std and mean
-    # 255 because 8 bit  0.449 avg mean 0.226 avg std
     image = image.resize((512, 512))
     # image = np.array(image.getdata()).reshape((im_height, im_width)).astype(np.uint8)
     # image = ((image /255.0)-0.449)/0.226
@@ -100,37 +94,40 @@ def load_image_into_numpy_array1(path):
     copyChannels[:, :, 0] = image
     copyChannels[:, :, 1] = image
     copyChannels[:, :, 2] = image
-    # plt.imshow(copyChannels)
-    # image = ((tf.cast(np.array(image), tf.float32) / 255.0) - 0.449) / 0.226
     image = ((tf.cast(copyChannels, tf.float32) / 255.0) - 0.449) / 0.226
 
-    # plt.imshow(image)
     return image
 
 
 def load_image_into_numpy_array(path):
+    """
+    in the paper they resized to 512 512 and normalized with the mean and Variance of Imagenet
+    Before inputting the images into the network,
+    the images were resized to 512 pixels by 512 pixels and normalized based on the mean and standard deviation (SD) of images in the ImageNet training set.
+
+    A simpler way just in case
+    https://stackoverflow.com/questions/67480507/tensorflow-equivalent-of-pytorchs-transforms-normalize --we use from here the 3rd option of taking the average Std and mean
+    255 because 8 bit  0.449 avg mean 0.226 avg std
+    """
     img = tf.io.read_file(path)
     image1 = tf.image.decode_png(img, channels=3)
     img = tf.image.resize(image1, size=(512, 512), preserve_aspect_ratio=True, method='nearest')
-    #
-    # img = tf.repeat(img, repeats=[3], axis=-1)
-    # plt.imshow(image1.numpy())
-    # plt.imshow(img.numpy())
-    image = ((tf.cast(img, tf.float32) / 255.0) - 0.449) / 0.226
-    # plt.imshow(image)
+
+    mean = np.array([0.485, 0.456, 0.406])
+    std = np.array([0.229, 0.224, 0.225])
+    img = tf.cast(img, tf.float32) / 255.0
+    img = img - mean
+    image = img / std
+
     return image
+
 
 def load_image_into_numpy_arrayNoNormalized(path):
     img = tf.io.read_file(path)
     image1 = tf.image.decode_png(img, channels=3)
     img = tf.image.resize(image1, size=(512, 512), preserve_aspect_ratio=True, method='nearest')
-    #
-    # img = tf.repeat(img, repeats=[3], axis=-1)
-    # plt.imshow(image1.numpy())
-    # plt.imshow(img.numpy())
-    # image = (tf.cast(img, tf.float32))
-    # plt.imshow(image)
     return img
+
 
 def preProcessImage(image):
     """Load an image from file into a numpy array.
@@ -144,27 +141,26 @@ def preProcessImage(image):
 
     Returns:
     uint8 numpy array with shape (img_height, img_width, 3)
+
+    in the paper they resized to 512 512 and normalized with the mean and Variance of Imagenet
+    Before inputting the images into the network,
+    the images were resized to 512 pixels by 512 pixels and normalized based on the mean and standard deviation (SD) of images in the ImageNet training set.
+
+    A simpler way just in case
+    https://stackoverflow.com/questions/67480507/tensorflow-equivalent-of-pytorchs-transforms-normalize --we use from here the 3rd option of taking the average Std and mean
+    255 because 8 bit  0.449 avg mean 0.226 avg std
+
+    image = np.array(image.getdata()).reshape((im_height, im_width)).astype(np.uint8)
+    image = ((image /255.0)-0.449)/0.226
+    image = ((tf.cast(np.array(image), tf.float32) / 255.0) - 0.449) / 0.226
     """
+    mean = [0.485, 0.456, 0.406]
+    std = [0.229, 0.224, 0.225]
 
-    # return np.array(image.getdata()).reshape(
-    #     (im_height, im_width)).astype(np.uint8)
-    # in the paper they resized to 512 512 and normalized with the mean and Variance of Imagenet
-    # Before inputting the images into the network,
-    # the images were resized to 512 pixels by 512 pixels and normalized based on the mean and standard deviation (SD) of images in the ImageNet training set.
-    # layer = tensorflow.keras.experimental.preprocessing.Normalization(mean=[0.485, 0.456, 0.406],
-    #                                                                   variance=[np.square(0.299),
-    #                                                                             np.square(0.224),
-    #                                                                             np.square(0.225)])
-    # https://stackoverflow.com/questions/67480507/tensorflow-equivalent-of-pytorchs-transforms-normalize --we use from here the 3rd option of taking the average Std and mean
-    # 255 because 8 bit  0.449 avg mean 0.226 avg std
-
-    # image = np.array(image.getdata()).reshape((im_height, im_width)).astype(np.uint8)
-    # image = ((image /255.0)-0.449)/0.226
-
-    # image = ((tf.cast(np.array(image), tf.float32) / 255.0) - 0.449) / 0.226
-    plt.imshow(image)
-    image = (image - 0.449) / 0.226
-
+    image[:, :, 0] = (image[:, :, 0] - 0.485) / 0.229
+    image[:, :, 1] = (image[:, :, 1] - 0.456) / 0.224
+    image[:, :, 2] = (image[:, :, 2] - 0.406) / 0.225
+    image = tf.cast(image, tf.float32)
     return image
 
     # def rgbOrrgba2gray(rgb):
@@ -202,25 +198,18 @@ def plot_cm(testLabels, predictions, p=0.5):
         tn = matrix[0][0]
         fn = matrix[1][0]
         fp = matrix[0][1]
-        sensitivity = round(tp / (tp + fn),2)
-        specificity = round(tn / (tn + fp),2)
+        sensitivity = round(tp / (tp + fn), 2)
+        specificity = round(tn / (tn + fp), 2)
 
         disp = ConfusionMatrixDisplay(matrix,
                                       display_labels=None)
         disp.plot(ax=axes[i][j], xticks_rotation=45)
 
-        disp.ax_.set_title(label + ' \n sensitivity ' +  str(sensitivity) + ' \nspecificity ' + str(specificity))
+        disp.ax_.set_title(label + ' \n sensitivity ' + str(sensitivity) + ' \nspecificity ' + str(specificity))
         m += 1
 
     plt.subplots_adjust(wspace=0.40, hspace=0.1)
-
     plt.show()
-    print("F")
-    # print('Legitimate Transactions Detected (True Negatives): ', cm[0][0])
-    # print('Legitimate Transactions Incorrectly Detected (False Positives): ', cm[0][1])
-    # print('Fraudulent Transactions Missed (False Negatives): ', cm[1][0])
-    # print('Fraudulent Transactions Detected (True Positives): ', cm[1][1])
-    # print('Total Fraudulent Transactions: ', np.sum(cm[1]))
 
 
 def multiclass_roc_auc_score(testLabels, predictions, average="macro"):
@@ -237,7 +226,7 @@ def multiclass_roc_auc_score(testLabels, predictions, average="macro"):
         j = j % 7
 
         fp, tp, thresholds = roc_curve(y_true_label.astype(int), y_pred_label)
-        print(labels[m] + ' ' + str( auc(fp, tp)) )
+        print(labels[m] + ' ' + str(auc(fp, tp)))
         axes[i][j].plot(fp, tp, label='%s (AUC:%0.2f)' % (labels[m], auc(fp, tp)))
         axes[i][j].legend()
         axes[i][j].set_xlabel('False Positive Rate')
@@ -245,7 +234,6 @@ def multiclass_roc_auc_score(testLabels, predictions, average="macro"):
         m += 1
     plt.subplots_adjust(wspace=0.40, hspace=0.1)
     plt.show()
-    print("ds")
 
 
 def getDataset(images, oneHotLabels, bboxList):
@@ -294,8 +282,6 @@ def multi_category_focal_loss2(gamma=2., alpha=.25):
     alpha = tf.constant(alpha, dtype=tf.float32)
 
     def multi_category_focal_loss2_fixed(y_true, y_pred):
-        print(y_true)
-        print(y_pred)
         y_true = tf.cast(y_true, tf.float32)
         y_pred = tf.clip_by_value(y_pred, epsilon, 1. - epsilon)
 

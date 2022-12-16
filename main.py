@@ -17,6 +17,7 @@ import tensorflow_ranking as tfr
 from google_drive_downloader import GoogleDriveDownloader
 from keras.applications.densenet import DenseNet121
 from keras.callbacks import ReduceLROnPlateau, ModelCheckpoint
+from keras_preprocessing.image import ImageDataGenerator
 from sklearn.preprocessing import OneHotEncoder, LabelEncoder
 from tensorflow.keras import Model
 from tensorflow.keras.optimizers import RMSprop
@@ -30,6 +31,8 @@ trainModel = True
 
 def main():
     downloadAndPrepareWorkspace()
+    BATCH_SIZE = 8
+    trainingMode = 0
     print(f"There are {len(os.listdir('./images'))} images.")
     # there are 112120 images split in train and Test sets based on the lists in metadata
     # boundry box data is available only for 988
@@ -48,24 +51,14 @@ def main():
     test_images_np = []
     imageLocation = "./images"
 
-    # df = pd.read_csv('./metadata/BBox_List_2017 (1).csv', index_col=0)
-    # i = os.path.exists('./metadata/BBox_List_2017 (1).csv');
-    # before we train with the full dataset we train with a smaller dataset for development purposes , this will be all dataset with Bounding box + 1001 examples without bounding box
-    # I took 185 of the data entries from BBOX list and put them in a new file to create a test BBOX list
+    # Load Data from Lists
 
-    # Training data
-    # removed until ready for server
-
-    # Training data
-    # with open('./metadata/train_val_list.txt',"r") as f:
-    #     trainingList = [line.strip() for line in f.read().split('\n')]
-    # with open('./metadata/test_list.txt',"r") as f:
-    #     testList = [line.strip() for line in f.read().split('\n')]
-    with open('./metadata/train_val_list1.txt', "r") as f:
+    with open('./metadata/train_val_list.txt', "r") as f:
         trainingList = [line.strip() for line in f.read().split('\n')]
-    with open('./metadata/test_list1.txt', "r") as f:
+    with open('./metadata/test_list.txt', "r") as f:
         testList = [line.strip() for line in f.read().split('\n')]
 
+    # get the data + convert the labest to one hot
     with open('./metadata/Data_Entry_2017_v2020UPDATED.csv') as csvfile1:
         csvReader = csv.reader(csvfile1, delimiter=',')
         next(csvReader)
@@ -84,139 +77,129 @@ def main():
 
     print(f"There are {len(trainingList) + len(testList)} images images in total loaded .")
     print(f"There are {len(trainigLabels) + len(testLabels)} labels loaded.")
-    print("TOP")
-    BATCH_SIZE = 8
-    util.convertFromPathAndLabelToTensor(trainingImgages[0], testLabelsString[0])
-    trainDataset = tf.data.Dataset.from_tensor_slices((trainingImgages, trainigLabels))
-    trainDataset = trainDataset.map(util.convertFromPathAndLabelToTensor)
-    trainDataset = trainDataset.shuffle(5000, reshuffle_each_iteration=True)
-    trainDataset = trainDataset.repeat()  # Mandatory for Keras for now
-    trainDataset = trainDataset.batch(BATCH_SIZE,
-                                      drop_remainder=True)  # drop_remainder is important on TPU, batch size must be fixed
-    trainDataset = trainDataset.prefetch(
-        tf.data.AUTOTUNE)
 
-    testDataset = tf.data.Dataset.from_tensor_slices((testListImages, testLabels))
-    testDataset = testDataset.map(util.convertFromPathAndLabelToTensor)
-    # testDataset = testDataset.shuffle(5000, reshuffle_each_iteration=True)
-    # testDataset = testDataset.repeat()  # Mandatory for Keras for now
-    testDataset = testDataset.batch(BATCH_SIZE,
-                                    drop_remainder=True)  # drop_remainder is important on TPU, batch size must be fixed
-    testDataset = testDataset.prefetch(
-        tf.data.AUTOTUNE)
+    if trainingMode == 0:
+
+        #Train Dataset
+        trainDataset = tf.data.Dataset.from_tensor_slices((trainingImgages, trainigLabels))
+        trainDataset = trainDataset.map(util.convertFromPathAndLabelToTensor, num_parallel_calls=tf.data.AUTOTUNE)
+        trainDataset = trainDataset.shuffle(5000, reshuffle_each_iteration=True)
+        trainDataset = trainDataset.repeat()  # Mandatory for Keras for now
+        trainDataset = trainDataset.batch(BATCH_SIZE,
+                                          drop_remainder=True)  # drop_remainder is important on TPU, batch size must be fixed
+        trainDataset = trainDataset.prefetch(
+            tf.data.AUTOTUNE)
+
+        #Test Dataset -- never repeat and shufle or else imposible to get as stand alone Tensor
+        testDataset = tf.data.Dataset.from_tensor_slices((testListImages, testLabels))
+        testDataset = testDataset.map(util.convertFromPathAndLabelToTensor, num_parallel_calls=tf.data.AUTOTUNE)
+        # testDataset = testDataset.shuffle(5000, reshuffle_each_iteration=True)
+        # testDataset = testDataset.repeat()  # Mandatory for Keras for now
+        testDataset = testDataset.batch(BATCH_SIZE,
+                                        drop_remainder=True)  # drop_remainder is important on TPU, batch size must be fixed
+        testDataset = testDataset.prefetch(
+            tf.data.AUTOTUNE)
 
     CLASS_NAMES = ['Atelectasis', 'Cardiomegaly', 'Effusion', 'Infiltration', 'Mass', 'Nodule', 'Pneumonia',
                    'Pneumothorax', 'Consolidation', 'Edema', 'Emphysema', 'Fibrosis', 'Pleural_Thickening', 'Hernia']
 
-    # traindf1 = pd.read_csv("./metadata/Data_Entry_2017_v2020UPDATED.csv", dtype = str)
-    #
-    # trainigLabels = tf.convert_to_tensor(np.array(trainigLabels)).numpy()
-    # train_dict = {"pic": trainingImgages}
-    #
-    # traindf = pd.DataFrame(data=train_dict)
-    # trainDfOneHot = pd.DataFrame(trainigLabels, columns=CLASS_NAMES)
-    # traindf=pd.concat([traindf, trainDfOneHot] )
-    # traindf = traindf.join(trainDfOneHot)
-    # traindf =  pd.concat([traindf, trainDfOneHot], keys=['pic', 'label'], axis=1)
+    # old Method used to use ImageDataGenerator + FlowFrom Dataframte
+    """
+    if trainingMode == 1:
+        trainigLabels = tf.convert_to_tensor(np.array(trainigLabels)).numpy()
+        train_dict = {"pic": trainingImgages}
+        traindf = pd.DataFrame(data=train_dict)
+        trainDfOneHot = pd.DataFrame(trainigLabels, columns=CLASS_NAMES)
+        traindf = traindf.join(trainDfOneHot)
 
-    # datagen = ImageDataGenerator(preprocessing_function=util.preProcessImage,
-    #                               rotation_range=20)
-    # train_generator = datagen.flow_from_dataframe(
-    #     dataframe=traindf,
-    #     x_col="pic",
-    #     y_col=CLASS_NAMES,
-    #     subset="training",
-    #     batch_size=8,
-    #     seed=42,
-    #     shuffle=True,
-    #     class_mode="raw",
-    #     target_size=(512, 512))
-    #
-    # test_dict = {'pic': testListImages}
-    # testdf = pd.DataFrame(data=test_dict)
-    # testLabels = tf.convert_to_tensor(np.array(testLabels)).numpy()
-    # testDfOneHot = pd.DataFrame(testLabels, columns=CLASS_NAMES)
-    # # testdf = pd.concat([testdf, testDfOneHot], keys=['pic', 'label'], axis=1)
-    # testdf = testdf.join(testDfOneHot)
-    # datagen1 = ImageDataGenerator(preprocessing_function=util.preProcessImage,rescale=1. / 255., rotation_range=20)
-    # validation_generator = datagen1.flow_from_dataframe(
-    #     dataframe=testdf,
-    #     x_col="pic",
-    #     y_col=CLASS_NAMES,
-    #     batch_size=8,
-    #     seed=42,
-    #     shuffle=True,
-    #     class_mode="raw",
-    #     target_size=(512, 512))
+        testLabels = tf.convert_to_tensor(np.array(testLabels)).numpy()
+        test_dict = {'pic': testListImages}
+        testdf = pd.DataFrame(data=test_dict)
+        testDfOneHot = pd.DataFrame(testLabels, columns=CLASS_NAMES)
+        testdf = testdf.join(testDfOneHot)
 
-    # for image in trainingList:
-    #     image_path = os.path.join(imageLocation, image)
-    #     train_images_np.append(util.load_image_into_numpy_array(image_path))
-    # for image in testList:
-    #     image_path = os.path.join(imageLocation, image)
-    #     test_images_np.append(util.load_image_into_numpy_array(image_path))
+        datagen = ImageDataGenerator(preprocessing_function=util.preProcessImage,
+                                     horizontal_flip=False)
+        train_generator = datagen.flow_from_dataframe(
+            dataframe=traindf,
+            x_col="pic",
+            y_col=CLASS_NAMES,
+            color_mode='rgb',
+            subset="training",
+            batch_size=BATCH_SIZE,
+            seed=42,
+            shuffle=False,
+            class_mode="raw",
+            interpolation='bilinear',
+            target_size=(1024,1024))
 
-    # Now put all the data in dataset so the model can load it as input
-    #
-    # train_images_np = tf.convert_to_tensor(train_images_np)
-    # test_images_np = tf.convert_to_tensor(test_images_np)
-    # # trainigLabels= tf.convert_to_tensor(np.array(trainigLabels))
-    # # testLabels= tf.convert_to_tensor(np.array(testLabels))
-    # trainingDataset = util.getDataset(train_images_np, trainigLabels, trainingBbox)
-    # testDataset = util.getDataset(test_images_np, testLabels, testingBbox)
+        datagen1 = ImageDataGenerator(preprocessing_function=util.preProcessImage)
+        validation_generator = datagen1.flow_from_dataframe(
+            dataframe=testdf,
+            x_col="pic",
+            y_col=CLASS_NAMES,
+            batch_size=BATCH_SIZE,
+            seed=42,
+            shuffle=True,
+            class_mode="raw",
+            target_size=(512, 512))
+    """
+    #  Old method where all the data was loaded into Memory -- good for advice as how not to do it ,
+    #  you can not use this approach with large Data as you will overflow the memory , the Dataset and ImageDatagerator objects load dinamically batches of data so they dont flood the memory
+    """
+    if trainingMode == 3:
+        for image in trainingList:
+            image_path = os.path.join(imageLocation, image)
+            train_images_np.append(util.load_image_into_numpy_array(image_path))
+        for image in testList:
+            image_path = os.path.join(imageLocation, image)
+            test_images_np.append(util.load_image_into_numpy_array(image_path))
+        train_images_np = tf.convert_to_tensor(train_images_np)
+        test_images_np = tf.convert_to_tensor(test_images_np)
+        trainigLabels = tf.convert_to_tensor(np.array(trainigLabels))
+        testLabels = tf.convert_to_tensor(np.array(testLabels))
+        trainingDataset = util.getDataset(train_images_np, trainigLabels, trainingBbox)
+        testDataset = util.getDataset(test_images_np, testLabels, testingBbox)
+    """
 
-    # DenseNet used  224×224 but the model in the paper 512X512
-    # I copied the 2d Grayscale image 3 times to replicate it being in 3 chanebecause to use imagenet weiths we need 3 chaneles
-
-    # We trained the networks with minibatches of size 8 and used an initial learning rate of 0.0001
-    # that was decayed by a factor of 10 each time the loss on the tuning set plateaued after an epoch (a full pass over the training set).
-    # In order to prevent the networks from overfitting,
-    # early stopping was performed by saving the network after every epoch and choosing the saved network with the lowest loss on the tuning set.
-
-    model = define_compile_model()
+    model = define_compile_model2()
     model.summary()
-    # densenetModel = model.layers[1]
-    # densenetModel.summary()
-    EPOCHS = 1
-    BATCH_SIZE = 8
-    # steps_per_epoch =tf.data.experimental.cardinality(trainingDataset).numpy()
-    # validation_steps=tf.data.experimental.cardinality(testDataset).numpy()
+    model.load_weights(filepath="checkpoint/model.13-0.8617.h5")
+    EPOCHS = 20
 
     steps_per_epoch = math.floor(len(trainigLabels) / BATCH_SIZE)
     validation_steps = math.floor(len(testLabels) / BATCH_SIZE)
 
-    reduce_lr_plateau = ReduceLROnPlateau(monitor='precision', factor=0.5,
-                                          patience=5, verbose=1, min_lr=0.00001)
+    reduce_lr_plateau = ReduceLROnPlateau(monitor='val_auc', factor=0.5,
+                                          patience=2, verbose=1, min_lr=0.00001)
     checkpoint_filepath = './checkpoint/'
 
-    # checkpoint = ModelCheckpoint('model.h5', verbose=1, save_best_only=True)
     model_checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
-
-        filepath='./checkpoint/model.{epoch:02d}-{precision:.4f}.h5',
+        filepath='./checkpoint/model.{epoch:02d}-{val_auc:.4f}.h5',
         save_weights_only=True,
-        monitor='precision',
+        monitor='val_auc',
         mode='max',
         verbose=1,
-        save_best_only=True)
-    trainModel = False
+        save_best_only=False)
+
     if trainModel:
         # history = model.fit(trainingDataset,
         #                     steps_per_epoch=steps_per_epoch, validation_data=testDataset,
         #                     validation_steps=validation_steps, epochs=EPOCHS,
         #                     callbacks=[reduce_lr_plateau, model_checkpoint_callback])
-        model.load_weights(filepath="checkpoint/model.57-0.2152.h5")
+
         # history = model.fit_generator(
         #     generator=train_generator, steps_per_epoch=steps_per_epoch, validation_data=validation_generator,
         #     validation_steps=validation_steps, epochs=EPOCHS,
         #     callbacks=[reduce_lr_plateau, model_checkpoint_callback]
         history = model.fit(
             trainDataset, steps_per_epoch=steps_per_epoch, validation_data=testDataset,
-            validation_steps=validation_steps, epochs=EPOCHS,
-            callbacks=[reduce_lr_plateau, model_checkpoint_callback]
+            validation_steps=validation_steps, epochs=3,
+            callbacks=[model_checkpoint_callback]
         )
         model.save("CheXnetXt_replica_gabi")
     else:
-        model.load_weights(filepath="checkpoint/model.57-0.2152.h5")
+
         eval = model.predict(testDataset, steps=validation_steps)
         results = model.evaluate(testDataset, steps=validation_steps, verbose=2)
         for name, value in zip(model.metrics_names, results):
@@ -229,16 +212,6 @@ def main():
         util.plot_cm(testLabels, eval)
         util.multiclass_roc_auc_score(testLabels, eval)
 
-        # add heat maps and viz util
-        # To generate the CAMs, images were fed into the fully trained network
-        # and the feature maps from the final convolutional layer were extracted
-        # A map of the most salient features used in classifying the image
-        # as having a specified pathology was computed by taking the weighted sum
-        # of the feature maps using their associated weights in the fully connected layer
-        # select all the layers for which you want to visualize the outputs and store it in a list
-        #     outputLastConv = model.get_layer('bn').output
-        #     vis_model = Model(model.input, outputLastConv)
-
         idx = 98
         image_path = testListImages[idx]
         actual_label = testLabels[idx]
@@ -247,6 +220,16 @@ def main():
 
 
 def vizualizeCam(actual_label, model, image_path):
+    """ add heat maps and viz util
+    To generate the CAMs, images were fed into the fully trained network
+    and the feature maps from the final convolutional layer were extracted
+    A map of the most salient features used in classifying the image
+    as having a specified pathology was computed by taking the weighted sum
+    of the feature maps using their associated weights in the fully connected layer
+    select all the layers for which you want to visualize the outputs and store it in a list
+        outputLastConv = model.get_layer('bn').output
+        vis_model = Model(model.input, outputLastConv)
+    """
     actualImageforDisplayNotNormalized = util.load_image_into_numpy_arrayNoNormalized(image_path).numpy()
     sample_image = util.load_image_into_numpy_array(image_path).numpy()
     sample_image_processed = np.expand_dims(sample_image, axis=0)
@@ -269,7 +252,6 @@ def vizualizeCam(actual_label, model, image_path):
             }
     printDf = pd.DataFrame(data=data)
 
-
     # f.legend(printDf.to_markdown())
     ax[0, 0].imshow(actualImageforDisplayNotNormalized)
     ax[0, 0].set_title("Original image ")
@@ -286,7 +268,6 @@ def vizualizeCam(actual_label, model, image_path):
     ax[1, 1].axis('off')
     plt.subplots_adjust(wspace=0.40, hspace=0.1)
     f.suptitle(printDf.to_markdown())
-    # plt.tight_layout()
     plt.show()
 
 
@@ -306,8 +287,8 @@ def get_CAM(model, processed_image, actual_label, layer_name='bn'):
         expected_output = actual_label
         predictions = predictions[0]
 
-        loss = util.multi_category_focal_loss2(gamma=2., alpha=.25)(expected_output, predictions)
-
+        # loss = multi_category_focal_loss2(gamma=2., alpha=.25)(expected_output, predictions)
+        loss=tf.keras.losses.BinaryCrossentropy(from_logits=False)(expected_output, predictions)
 
     # nu merge bine bp aici
     # get the gradient of the loss with respect to the outputs of the last conv layer
@@ -385,7 +366,7 @@ def define_compile_model():
     averagePool = tf.keras.layers.GlobalAveragePooling2D()(feature_extractor.output)
     output = tf.keras.layers.Dense(14, activation='sigmoid', name="classification")(averagePool)
 
-    # binary_crossentropy rupe
+    tf.keras.losses.BinaryFocalCrossentropy
     # loss = tfr.keras.losses.SigmoidCrossEntropyLoss()
     # classification_output = final_model(inputs)
     METRICS = [
@@ -401,9 +382,53 @@ def define_compile_model():
         tf.keras.metrics.AUC(name='prc', curve='PR'),  # precision-recall curve
     ]
     model = tf.keras.Model(inputs=feature_extractor.input, outputs=output)
-    optimizer = tf.keras.optimizers.Adam(learning_rate=0.0001)
+    # optimizer = tf.keras.optimizers.Adam(learning_rate=0.0001)
+    optimizer = tf.keras.optimizers.experimental.AdamW(learning_rate=0.0001)
     model.compile(optimizer=optimizer,
-                  loss=[util.multi_category_focal_loss2(alpha=0.25, gamma=2)],
+                  # loss=[multi_category_focal_loss2(alpha=0.25, gamma=2)],
+                  loss='binary_crossentropy',
+
+                  metrics=METRICS)
+
+    return model
+
+
+def define_compile_model2():
+    inputs = tf.keras.layers.Input(shape=(512, 512, 3))
+    x = tf.keras.layers.RandomFlip("horizontal", seed=62)(inputs)
+    x = DenseNet121(weights='imagenet', include_top=False, input_shape=(512, 512, 3), input_tensor=x)
+    feature_extractor = x.output
+    # feature_extractor = DenseNet121(weights='imagenet', include_top=False, input_shape=(512, 512, 3))(x)
+
+    averagePool = tf.keras.layers.GlobalAveragePooling2D()(feature_extractor)
+    output = tf.keras.layers.Dense(14, activation='sigmoid', name="classification")(averagePool)
+
+    # binary_crossentropy rupe
+    # loss = tfr.keras.losses.SigmoidCrossEntropyLoss()
+    # classification_output = final_model(inputs)
+    METRICS = [
+        tf.keras.metrics.TruePositives(name='tp'),
+        tf.keras.metrics.FalsePositives(name='fp'),
+        tf.keras.metrics.TrueNegatives(name='tn'),
+        tf.keras.metrics.FalseNegatives(name='fn'),
+        tf.keras.metrics.BinaryAccuracy(name='Binary Accuracy'),
+        tf.keras.metrics.CategoricalAccuracy(name='Categorical Accuracy'),
+        tf.keras.metrics.Precision(name='precision'),
+        tf.keras.metrics.Recall(name='recall'),
+        tf.keras.metrics.AUC(name='auc'),
+        tf.keras.metrics.AUC(name='prc', curve='PR'),  # precision-recall curve
+    ]
+    loss = tf.keras.losses.BinaryFocalCrossentropy(gamma=5)
+    model = tf.keras.Model(inputs=inputs, outputs=output)
+    # optimizer = tf.keras.optimizers.Adam(learning_rate=0.0001)
+    optimizer = tf.keras.optimizers.Adam(learning_rate=0.0001)
+    # optimizer = tf.keras.optimizers.SGD(learning_rate=0.01, momentum=0.9)
+    # optimizer = tf.keras.optimizers.experimental.AdamW(learning_rate=0.0001)
+    model.compile(optimizer=optimizer,
+                  # loss='binary_focal_crossentropy',
+                  loss='binary_crossentropy',
+                  # loss=[multi_category_focal_loss2(alpha=0.25, gamma=5)],
+                  # loss = loss,
                   metrics=METRICS)
 
     return model
@@ -461,16 +486,8 @@ def downloadAndPrepareWorkspace():
                 tar = tarfile.open(os.path.join(temp_path, filenameTemp), "r:gz")
                 tar.extractall()
                 tar.close()
-    # !wget - -no - check - certificate
-    # 'https://drive.google.com/uc?export=download&id=1QcGwCPZDl-soNlKXaCQcVFMhYnD1dP-U' - O
-    # 'metadata.rar'
-    originalDriveLink = 'https://drive.google.com/file/d/1QcGwCPZDl-soNlKXaCQcVFMhYnD1dP-U/view?usp=sharing'
-    driveLink = 'https://drive.google.com/uc?export=download&id=1K-_oj7G9sLqTOt_IKoy6TanNKDLJ_occ'
 
-    driveLink = "https://drive.google.com/uc?export=download&id=1PPg_ZipYXbaegqfb92pvQ5sZYlLv4YCH"
-    # GoogleDriveDownloader.download_file_from_google_drive(file_id='1QcGwCPZDl-soNlKXaCQcVFMhYnD1dP-U',
-    #                                 dest_path='./temp',
-    #                                 unzip=True)
+    driveLink = "https://drive.google.com/uc?export=download&id=1uA1DQP9Vj832djEZAoNU5YLm00Qf_rlQ"
     metaDataExists = os.path.exists('./metadata.zip')
     if not metaDataExists:
         file_name = wget.download(driveLink)

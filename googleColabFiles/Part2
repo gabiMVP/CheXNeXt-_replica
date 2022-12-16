@@ -1,7 +1,7 @@
-    trainModel = True
+trainModel = True
     downloadAndPrepareWorkspace()
     if(len(os.listdir('/content/metadata/'))) == 0:
-      !unzip /content/drive/MyDrive/trainingSet/metadataNew.zip -d /content/metadata/
+      !unzip /content/drive/MyDrive/trainingSet/metadata.zip -d /content/metadata/
     else:
       print("has already metadata")    
    
@@ -51,9 +51,9 @@
     imageLocation = "./images"
 
 
-    model = define_compile_model()
+    model = define_compile_model2()
     model.summary()
-    model.load_weights(filepath="/content/checkpoint/checkpoint/model.04-0.2978.h5")
+    model.load_weights(filepath="/content/checkpoint/model.07-0.9434.h5")
 
     # df = pd.read_csv('./metadata/BBox_List_2017 (1).csv', index_col=0)
     # i = os.path.exists('./metadata/BBox_List_2017 (1).csv');
@@ -165,8 +165,9 @@
     BATCH_SIZE = 8
 
 
+
     trainDataset = tf.data.Dataset.from_tensor_slices((trainingImgages, trainigLabels))
-    trainDataset = trainDataset.map(convertFromPathAndLabelToTensor)
+    trainDataset = trainDataset.map(convertFromPathAndLabelToTensor,num_parallel_calls =BATCH_SIZE)
     trainDataset = trainDataset.shuffle(5000, reshuffle_each_iteration=True)
     trainDataset = trainDataset.repeat()  # Mandatory for Keras for now
     trainDataset = trainDataset.batch(BATCH_SIZE,
@@ -175,7 +176,7 @@
         tf.data.AUTOTUNE)
 
     testDataset = tf.data.Dataset.from_tensor_slices((testListImages, testLabels))
-    testDataset = testDataset.map(convertFromPathAndLabelToTensor)
+    testDataset = testDataset.map(convertFromPathAndLabelToTensor,num_parallel_calls =BATCH_SIZE)
     # testDataset = testDataset.shuffle(5000, reshuffle_each_iteration=True)
     # testDataset = testDataset.repeat()  # Mandatory for Keras for now
     testDataset = testDataset.batch(BATCH_SIZE,
@@ -193,19 +194,20 @@
     steps_per_epoch = math.floor(len(trainigLabels) / BATCH_SIZE)
     validation_steps = math.floor(len(testLabels) / BATCH_SIZE)
 
+
     reduce_lr_plateau = ReduceLROnPlateau(
         # monitor='val_accuracy', factor=0.5,
-        monitor='precision', factor=0.5,
-        patience=20, verbose=1, min_lr=0.00001
+        monitor='val_loss', factor=0.5,
+        patience=2, verbose=1, min_lr=0.000001
         )
     checkpoint_filepath = './checkpoint/'
 
     # checkpoint = ModelCheckpoint('model.h5', verbose=1, save_best_only=True)
     model_checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
-        './checkpoint/model.{epoch:02d}-{val_accuracy:.4f}.h5',
+        './checkpoint/model.{epoch:02d}-{val_auc:.4f}.h5',
         save_weights_only=True,
         # monitor='val_accuracy',
-        monitor='precision',
+        monitor='val_auc',
         mode='max',
         verbose=1,
         save_best_only=False)
@@ -216,6 +218,7 @@
                             steps_per_epoch=steps_per_epoch, validation_data=testDataset,
                             validation_steps=validation_steps, epochs=EPOCHS,
                             callbacks=[reduce_lr_plateau, model_checkpoint_callback])
+                            # callbacks=[ model_checkpoint_callback])
         
         # history = model.fit_generator(
         #     generator=train_generator, steps_per_epoch=steps_per_epoch, validation_data=validation_generator,

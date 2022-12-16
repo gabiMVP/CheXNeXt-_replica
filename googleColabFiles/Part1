@@ -92,97 +92,20 @@ def convertfromNameOfDiseazeToOneHot(rowDataset):
 def load_image_into_numpy_array(path):
     img = tf.io.read_file(path)
     image1 = tf.image.decode_png(img, channels=3)
-    img = tf.image.resize(image1,size=(512,512),preserve_aspect_ratio=True,method='nearest')
+    img = tf.image.resize(image1, size=(512, 512), preserve_aspect_ratio=True, method='nearest')
     #
     # img = tf.repeat(img, repeats=[3], axis=-1)
     # plt.imshow(image1.numpy())
-    # plt.imshow(img.numpy())
-    image = ((tf.cast(img, tf.float32) / 255.0) - 0.449) / 0.226
-    #plt.imshow(image.numpy())
+    # image[:, :, 0] = (image[:, :, 0] - 0.485) / 0.229
+    # image[:, :, 1] = (image[:, :, 1] - 0.456) / 0.224
+    # image[:, :, 2] = (image[:, :, 2] - 0.406) / 0.225
+
+    mean = np.array([0.485, 0.456, 0.406])
+    std = np.array([0.229, 0.224, 0.225])
+    img = tf.cast(img, tf.float32) / 255.0
+    img = img - mean
+    image = img / std
     return image
-
-def load_image_into_numpy_array1(path):
-    """Load an image from file into a numpy array.
-
-    Puts image into numpy array to feed into tensorflow graph.
-    Note that by convention we put it into a numpy array with shape
-    (height, width, channels), where channels=3 for RGB.
-
-    Args:
-    path: a file path.
-
-    Returns:
-    uint8 numpy array with shape (img_height, img_width, 3)
-    """
-
-    img_data = tf.io.gfile.GFile(path, 'rb').read()
-    image = Image.open(io.BytesIO(img_data))
-    bands = Image.Image.getbands(image)
-    (im_width, im_height) = image.size
-    # we have some images that are RGBA so we need to standardize them to 1 channel like the rest
-    if (len(bands) > 3):
-        image = image.convert('1')
-
-    # return np.array(image.getdata()).reshape(
-    #     (im_height, im_width)).astype(np.uint8)
-    # in the paper they resized to 512 512 and normalized with the mean and Variance of Imagenet
-    # Before inputting the images into the network,
-    # the images were resized to 512 pixels by 512 pixels and normalized based on the mean and standard deviation (SD) of images in the ImageNet training set.
-    # layer = tensorflow.keras.experimental.preprocessing.Normalization(mean=[0.485, 0.456, 0.406],
-    #                                                                   variance=[np.square(0.299),
-    #                                                                             np.square(0.224),
-    #                                                                             np.square(0.225)])
-    #https://stackoverflow.com/questions/67480507/tensorflow-equivalent-of-pytorchs-transforms-normalize --we use from here the 3rd option of taking the average Std and mean
-    #255 because 8 bit  0.449 avg mean 0.226 avg std
-    image = image.resize((512, 512))
-    # image = np.array(image.getdata()).reshape((im_height, im_width)).astype(np.uint8)
-    # image = ((image /255.0)-0.449)/0.226
-    image = np.array(image.getdata()).reshape((512, 512)).astype(np.uint8)
-    copyChannels = np.zeros(shape=(512,512,3), dtype=np.uint8)
-    copyChannels[:,:,0] = image
-    copyChannels[:, :, 1] = image
-    copyChannels[:, :, 2] = image
-    # image = ((tf.cast(np.array(image), tf.float32) / 255.0) - 0.449) / 0.226
-    image = ((tf.cast(copyChannels, tf.float32) / 255.0) - 0.449) / 0.226
-    return image
-
-def multi_category_focal_loss2(gamma=2., alpha=.25):
-    """
-    focal loss for multi category of multi label problem
-    适用于多分类或多标签问题的focal loss
-    alpha控制真值y_true为1/0时的权重
-        1的权重为alpha, 0的权重为1-alpha
-    当你的模型欠拟合，学习存在困难时，可以尝试适用本函数作为loss
-    当模型过于激进(无论何时总是倾向于预测出1),尝试将alpha调小
-    当模型过于惰性(无论何时总是倾向于预测出0,或是某一个固定的常数,说明没有学到有效特征)
-        尝试将alpha调大,鼓励模型进行预测出1。
-    Usage:
-     model.compile(loss=[multi_category_focal_loss2(alpha=0.25, gamma=2)], metrics=["accuracy"], optimizer=adam)
-    """
-    epsilon = 1.e-7
-    gamma = float(gamma)
-    alpha = tf.constant(alpha, dtype=tf.float32)
-
-    def multi_category_focal_loss2_fixed(y_true, y_pred):
-        print(y_true)
-        print(y_pred)
-        y_true = tf.cast(y_true, tf.float32)
-        y_pred = tf.clip_by_value(y_pred, epsilon, 1. - epsilon)
-
-        alpha_t = y_true * alpha + (tf.ones_like(y_true) - y_true) * (1 - alpha)
-        y_t = tf.multiply(y_true, y_pred) + tf.multiply(1 - y_true, 1 - y_pred)
-        ce = -tf.math.log(y_t)
-        weight = tf.pow(tf.subtract(1., y_t), gamma)
-        fl = tf.multiply(tf.multiply(weight, ce), alpha_t)
-        loss = tf.reduce_mean(fl)
-        return loss
-
-    return multi_category_focal_loss2_fixed
-    # def rgbOrrgba2gray(rgb):
-    #     r, g, b = rgb[:, :, 0], rgb[:, :, 1], rgb[:, :, 2]
-    #     gray = 0.2989 * r + 0.5870 * g + 0.1140 * b
-    #
-    #     return gray
 
 
 def getDataset(images, oneHotLabels, bboxList):
@@ -275,8 +198,8 @@ def get_CAM(model, processed_image, actual_label, layer_name='bn'):
         expected_output = actual_label
         predictions = predictions[0]
 
-        loss = multi_category_focal_loss2(gamma=2., alpha=.25)(expected_output, predictions)
-
+        # loss = multi_category_focal_loss2(gamma=2., alpha=.25)(expected_output, predictions)
+        loss=tf.keras.losses.BinaryCrossentropy(from_logits=False)(expected_output, predictions)
 
     # nu merge bine bp aici
     # get the gradient of the loss with respect to the outputs of the last conv layer
@@ -354,7 +277,7 @@ def define_compile_model():
     averagePool = tf.keras.layers.GlobalAveragePooling2D()(feature_extractor.output)
     output = tf.keras.layers.Dense(14, activation='sigmoid', name="classification")(averagePool)
 
-    # binary_crossentropy rupe
+    tf.keras.losses.BinaryFocalCrossentropy
     # loss = tfr.keras.losses.SigmoidCrossEntropyLoss()
     # classification_output = final_model(inputs)
     METRICS = [
@@ -370,13 +293,86 @@ def define_compile_model():
         tf.keras.metrics.AUC(name='prc', curve='PR'),  # precision-recall curve
     ]
     model = tf.keras.Model(inputs=feature_extractor.input, outputs=output)
-    optimizer = tf.keras.optimizers.Adam(learning_rate=0.0001)
+    # optimizer = tf.keras.optimizers.Adam(learning_rate=0.0001)
+    optimizer = tf.keras.optimizers.experimental.AdamW(learning_rate=0.0001)
     model.compile(optimizer=optimizer,
                   # loss=[multi_category_focal_loss2(alpha=0.25, gamma=2)],
                   loss='binary_crossentropy',
+                 
                   metrics=METRICS)
 
     return model
+
+def define_compile_model2():
+    inputs = tf.keras.layers.Input(shape=(512, 512, 3))
+    x = tf.keras.layers.RandomFlip("horizontal",seed=62)(inputs)
+    x = DenseNet121(weights='imagenet', include_top=False, input_shape=(512, 512, 3),input_tensor = x)
+    feature_extractor =x.output
+    # feature_extractor = DenseNet121(weights='imagenet', include_top=False, input_shape=(512, 512, 3))(x)
+
+    averagePool = tf.keras.layers.GlobalAveragePooling2D()(feature_extractor)
+    output = tf.keras.layers.Dense(14, activation='sigmoid', name="classification")(averagePool)
+
+    # binary_crossentropy rupe
+    # loss = tfr.keras.losses.SigmoidCrossEntropyLoss()
+    # classification_output = final_model(inputs)
+    METRICS = [
+        tf.keras.metrics.TruePositives(name='tp'),
+        tf.keras.metrics.FalsePositives(name='fp'),
+        tf.keras.metrics.TrueNegatives(name='tn'),
+        tf.keras.metrics.FalseNegatives(name='fn'),
+        tf.keras.metrics.BinaryAccuracy(name='Binary Accuracy'),
+        tf.keras.metrics.CategoricalAccuracy(name='Categorical Accuracy'),
+        tf.keras.metrics.Precision(name='precision'),
+        tf.keras.metrics.Recall(name='recall'),
+        tf.keras.metrics.AUC(name='auc'),
+        tf.keras.metrics.AUC(name='prc', curve='PR'),  # precision-recall curve
+    ]
+    loss = tf.keras.losses.BinaryFocalCrossentropy(gamma=5)
+    model = tf.keras.Model(inputs=inputs, outputs=output)
+    # optimizer = tf.keras.optimizers.Adam(learning_rate=0.0001)
+    optimizer = tf.keras.optimizers.Adam(learning_rate=0.0001)
+    # optimizer = tf.keras.optimizers.SGD(learning_rate=0.01, momentum=0.9)
+    # optimizer = tf.keras.optimizers.experimental.AdamW(learning_rate=0.0001)
+    model.compile(optimizer=optimizer,
+                  # loss='binary_focal_crossentropy',
+                  loss='binary_crossentropy',
+                  # loss=[multi_category_focal_loss2(alpha=0.25, gamma=5)],
+                  # loss = loss,
+                  metrics=METRICS)
+
+    return model
+
+def multi_category_focal_loss2(gamma=2., alpha=.25):
+    """
+    focal loss for multi category of multi label problem
+    适用于多分类或多标签问题的focal loss
+    alpha控制真值y_true为1/0时的权重
+        1的权重为alpha, 0的权重为1-alpha
+    当你的模型欠拟合，学习存在困难时，可以尝试适用本函数作为loss
+    当模型过于激进(无论何时总是倾向于预测出1),尝试将alpha调小
+    当模型过于惰性(无论何时总是倾向于预测出0,或是某一个固定的常数,说明没有学到有效特征)
+        尝试将alpha调大,鼓励模型进行预测出1。
+    Usage:
+     model.compile(loss=[multi_category_focal_loss2(alpha=0.25, gamma=2)], metrics=["accuracy"], optimizer=adam)
+    """
+    epsilon = 1.e-7
+    gamma = float(gamma)
+    alpha = tf.constant(alpha, dtype=tf.float32)
+
+    def multi_category_focal_loss2_fixed(y_true, y_pred):
+        y_true = tf.cast(y_true, tf.float32)
+        y_pred = tf.clip_by_value(y_pred, epsilon, 1. - epsilon)
+
+        alpha_t = y_true * alpha + (tf.ones_like(y_true) - y_true) * (1 - alpha)
+        y_t = tf.multiply(y_true, y_pred) + tf.multiply(1 - y_true, 1 - y_pred)
+        ce = -tf.math.log(y_t)
+        weight = tf.pow(tf.subtract(1., y_t), gamma)
+        fl = tf.multiply(tf.multiply(weight, ce), alpha_t)
+        loss = tf.reduce_mean(fl)
+        return loss
+
+    return multi_category_focal_loss2_fixed
 
 
 def downloadAndPrepareWorkspace():
@@ -497,7 +493,7 @@ def plot_cm(testLabels, predictions, p=0.5):
 
 def multiclass_roc_auc_score(testLabels, predictions, average="macro"):
     labels = CLASS_NAMES
-
+    
     f, axes = plt.subplots(2, 7, figsize=(60, 30))
     m = 0
     for label_col in range(len(labels)):
@@ -509,7 +505,7 @@ def multiclass_roc_auc_score(testLabels, predictions, average="macro"):
         j = j % 7
 
         fp, tp, thresholds = roc_curve(y_true_label.astype(int), y_pred_label)
-
+        print(labels[m] + ' ' + str( auc(fp, tp)) )
         axes[i][j].plot(fp, tp, label='%s (AUC:%0.2f)' % (labels[m], auc(fp, tp)))
         axes[i][j].legend()
         axes[i][j].set_xlabel('False Positive Rate')
