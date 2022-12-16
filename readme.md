@@ -59,16 +59,34 @@ And with these 4 models try different HyperParameters, For Adam Batch size and L
 
 Besides, the normal confusion matrix I also print  the sensitivity and specificity
 
-
+| Pathology | CheXNet | my Model model.13-0.8617.h5|
+| ----------- | ----------- |----------- |
+| Atelectasis | 0,8094 | 0.774|
+| Cardiomegaly | 0,9248 | 0.8772|
+| Effusion | 0,8638 | 0.8298|
+| Infiltration | 0,7345 | 0.6930|
+| Mass | 0,8676 | 0.8305|
+| Nodule | 0,7802 | 0.7960|
+| Pneumonia | 0,768 | 0.7284|
+| Pneumothorax | 0,8887 | 0.8666|
+| Consolidation | 0,7901 | 0.7379|
+| Edema | 0,8878 | 0.7379 | 0.8466|
+| Emphysema | 0,9371 | 0.9355|
+| Fibrosis | 0,8047 | 0.8268|
+| Pleural Thickening | 0,8062 | 0.7906|
+| Hernia | 0,9164 | 0.9253|
 
 <img src="./rez/AUCBestAUC.png" alt="AUC scores" />
 
-In the AUC Scores I had lower results so far not as good as CheXNet or as John Zech
+In the AUC Scores I had lower results so far,not as good as CheXNet or as John Zech
 This leads me to believe the RandomFlip needs to be improved to offer a 50 % chance of inversion like in the paper and more searching in the hyperparameter space has to be performed
 
-
-<img src="./rez/HeatMap3.png" alt="AUC scores" />
-
+###Some Examples
 I added CAM  + Saliency 
+
+<img src="./rez/HeatMapBestAUC.png" alt="Example 1 " />
+
+<img src="./rez/heatMap2bestAUC.png" alt="Example 2" />
+
 
 
