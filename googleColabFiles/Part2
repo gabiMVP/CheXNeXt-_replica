@@ -1,257 +1,97 @@
-trainModel = True
+    strategy = tf.distribute.MirroredStrategy()
+    BATCH_SIZE = BATCH_SIZE * strategy.num_replicas_in_sync
+
+    print('Number of devices: {}'.format(strategy.num_replicas_in_sync))
+    print(BATCH_SIZE)
+    trainModel = True
     downloadAndPrepareWorkspace()
-    if(len(os.listdir('/content/metadata/'))) == 0:
-      !unzip /content/drive/MyDrive/trainingSet/metadata.zip -d /content/metadata/
-    else:
-      print("has already metadata")    
-   
-    if(len(os.listdir('/content/temp/'))) == 0:
-      !cp -r /content/drive/MyDrive/trainingSet/temp /content/temp
-      print(os.listdir('/content/images'))
-    else:
-      print("has already temp to unarhive")  
-    if(len(os.listdir('/content/images/'))) == 0: 
-      print("extracting")
-      !tar xvzf temp/temp/images_01.tar.gz images
-      !tar xvzf temp/temp/images_02.tar.gz images
-      !tar xvzf temp/temp/images_03.tar.gz images
-      !tar xvzf temp/temp/images_04.tar.gz images
-      !tar xvzf temp/temp/images_05.tar.gz images
-      !tar xvzf temp/temp/images_06.tar.gz images
-      !tar xvzf temp/temp/images_07.tar.gz images
-      !tar xvzf temp/temp/images_08.tar.gz images
-      !tar xvzf temp/temp/images_09.tar.gz images
-      !tar xvzf temp/temp/images_10.tar.gz images
-      !tar xvzf temp/temp/images_11.tar.gz images
-      !tar xvzf temp/temp/images_12.tar.gz images
-    else:
-      print("has already images present")  
-    if(len(os.listdir('/content/checkpoint/'))) == 0:
-      !cp -r /content/drive/MyDrive/trainingSet/checkpoint /content/checkpoint
-    else:
-      print("has already checkpoint")    
-    from google.colab import files
-   
-    print(f"There are {len(os.listdir('./images'))} images.")
-    # there are 112120 images split in train and Test sets based on the lists in metadata
-    # boundry box data is available only for 988
-    # in the 1st version we will create a new dataset of 988 with Boudry box + 1012 random images for training (2k) and 200 for test
-    trainingList = []
-    testList = []
-    trainingImgages = []
-    testListImages = []
-    trainigLabels = [];
-    testLabels = [];
-    trainingBbox = [];
-    testingBbox = [];
-    testLabelsString = []
-    trainigLabelsString = []
-    train_images_np = []
-    test_images_np = []
-    imageLocation = "./images"
+    imagePrefix = "./images/"
+    df = pd.read_csv('./metadata/Data_Entry_2017_v2020UPDATED.csv', usecols=[0, 1])
+    df['Image Index'] = imagePrefix + df['Image Index'].astype(str)
+    y_entry = df.pop('Finding Labels')
+    y = y_entry.str.get_dummies()
+    y.pop('No Finding')
+    df = pd.concat([df, y], axis=1)
+    columns = df.columns.values
+    X_train, X_test, Y_train, Y_test = train_test_split(df[columns[0]], df[columns[1:]], test_size=0.2, shuffle=False)
+    # test for 1
+    # loadImageAndPreprocess(X_train[0],None)
+    # readPixel(X_train[0])
+    option_no_order = tf.data.Options()
+    option_no_order.experimental_deterministic = False
+    # Train
+    trainDataset = tf.data.Dataset.from_tensor_slices((X_train, Y_train))
+    # trainDataset = trainDataset.with_options(option_no_order)
+    trainDataset = trainDataset.map(loadImageAndPreprocess, num_parallel_calls=AUTO)
+    trainDataset = trainDataset.shuffle(2000)
+    # drop_remainder is important on TPU, batch size must be fixed
+    trainDataset = trainDataset.batch(BATCH_SIZE, drop_remainder=True)
+    trainDataset = trainDataset.prefetch(AUTO)
 
+    # Test
+    testDataset = tf.data.Dataset.from_tensor_slices((X_test, Y_test))
+    testDataset = testDataset.map(loadImageAndPreprocess, num_parallel_calls=AUTO)
+    # drop_remainder is important on TPU, batch size must be fixed
+    testDataset = testDataset.batch(BATCH_SIZE, drop_remainder=True)
+    testDataset = testDataset.prefetch(AUTO)
+    Y_train = Y_train.to_numpy()
 
-    model = define_compile_model2()
+    # since we have multi label we sum per axis 0 argmax is incorect
+    totalsPerDisease = np.sum(Y_train, axis=0)
+    total = np.sum(totalsPerDisease)
+    # formula per weight :  n_samples / (n_classes * np.bincount(y))
+    weights = total / (len(CLASS_NAMES) * totalsPerDisease)
+
+    class_weights = dict(enumerate(weights))
+    with strategy.scope():
+      model = define_compile_model()
     model.summary()
-    model.load_weights(filepath="/content/checkpoint/model.07-0.9434.h5")
+    # model.load_weights(filepath="checkpoint/model.20-0.8029_bestRecall.h5")
+    EPOCHS = 20
 
-    # df = pd.read_csv('./metadata/BBox_List_2017 (1).csv', index_col=0)
-    # i = os.path.exists('./metadata/BBox_List_2017 (1).csv');
-    # before we train with the full dataset we train with a smaller dataset for development purposes , this will be all dataset with Bounding box + 1001 examples without bounding box
-    # I took 185 of the data entries from BBOX list and put them in a new file to create a test BBOX list
+    steps_per_epoch = math.floor(len(X_train) / BATCH_SIZE)
+    validation_steps = math.floor(len(X_test) / BATCH_SIZE)
 
-    # Training data
-    # removed until ready for server
-    # model = define_compile_model()
-    # model.load_weights(filepath="/content/checkpoint/")
-    # Training data
-    # with open('./metadata/train_val_list.txt',"r") as f:
-    #     trainingList = [line.strip() for line in f.read().split('\n')]
-    # with open('./metadata/test_list.txt',"r") as f:
-    #     testList = [line.strip() for line in f.read().split('\n')]
-    with open('./metadata/metadataNew/metadata/train_val_list.txt', "r") as f:
-        trainingList = [line.strip() for line in f.read().split('\n')]
-    with open('./metadata/metadataNew/metadata/test_list.txt', "r") as f:
-        testList = [line.strip() for line in f.read().split('\n')]
-
-    with open('./metadata/metadataNew/metadata/Data_Entry_2017_v2020UPDATED.csv') as csvfile1:
-        csvReader = csv.reader(csvfile1, delimiter=',')
-        next(csvReader)
-        for row in csvReader:
-            if (row[0] in trainingList):
-                image_path = os.path.join(imageLocation, row[0])
-                trainingImgages.append(image_path)
-                trainigLabels.append(convertfromNameOfDiseazeToOneHot(row[1]))
-                trainigLabelsString.append(row[1])
-            elif (row[0] in testList):
-                # testList.append(row[0])
-                image_path = os.path.join(imageLocation, row[0])
-                testListImages.append(image_path)
-                testLabels.append(convertfromNameOfDiseazeToOneHot(row[1]))
-                testLabelsString.append(row[1])
-
-    print(f"There are {len(trainingList) + len(testList)} images images in total loaded .")
-    print(f"There are {len(trainigLabels) + len(testLabels)} labels loaded.")
-    print("TOP")
-
-    CLASS_NAMES = ['Atelectasis', 'Cardiomegaly', 'Effusion', 'Infiltration', 'Mass', 'Nodule', 'Pneumonia',
-                   'Pneumothorax', 'Consolidation', 'Edema', 'Emphysema', 'Fibrosis', 'Pleural_Thickening', 'Hernia']
-
-    # traindf1 = pd.read_csv("./metadata/Data_Entry_2017_v2020UPDATED.csv", dtype = str)
-
-    # trainigLabels = tf.convert_to_tensor(np.array(trainigLabels)).numpy()
-    # train_dict = {"pic": trainingImgages}
-
-    # traindf = pd.DataFrame(data=train_dict)
-    # trainDfOneHot = pd.DataFrame(trainigLabels, columns=CLASS_NAMES)
-    # traindf=pd.concat([traindf, trainDfOneHot] )
-    # traindf = traindf.join(trainDfOneHot)
-    # traindf =  pd.concat([traindf, trainDfOneHot], keys=['pic', 'label'], axis=1)
-
-    # datagen = ImageDataGenerator(preprocessing_function=preProcessImage,
-    #                              rescale=1. / 255., rotation_range=20)
-    # train_generator = datagen.flow_from_dataframe(
-    #     dataframe=traindf,
-    #     x_col="pic",
-    #     y_col=CLASS_NAMES,
-    #     subset="training",
-    #     batch_size=8,
-    #     seed=42,
-    #     shuffle=True,
-    #     class_mode="raw",
-    #     target_size=(512, 512))
-
-    # test_dict = {'pic': testListImages}
-    # testdf = pd.DataFrame(data=test_dict)
-    # testLabels = tf.convert_to_tensor(np.array(testLabels)).numpy()
-    # testDfOneHot = pd.DataFrame(testLabels, columns=CLASS_NAMES)
-    # # testdf = pd.concat([testdf, testDfOneHot], keys=['pic', 'label'], axis=1)
-    # testdf = testdf.join(testDfOneHot)
-    # datagen1 = ImageDataGenerator(preprocessing_function=preProcessImage,rescale=1. / 255., rotation_range=20)
-    # validation_generator = datagen1.flow_from_dataframe(
-    #     dataframe=testdf,
-    #     x_col="pic",
-    #     y_col=CLASS_NAMES,
-    #     batch_size=8,
-    #     seed=42,
-    #     shuffle=True,
-    #     class_mode="raw",
-    #     target_size=(512, 512))
-
-    # for image in trainingList:
-    #     image_path = os.path.join(imageLocation, image)
-    #     train_images_np.append(util.load_image_into_numpy_array(image_path))
-    # for image in testList:
-    #     image_path = os.path.join(imageLocation, image)
-    #     test_images_np.append(util.load_image_into_numpy_array(image_path))
-
-    # Now put all the data in dataset so the model can load it as input
-    #
-    # train_images_np = tf.convert_to_tensor(train_images_np)
-    # test_images_np = tf.convert_to_tensor(test_images_np)
-    # # trainigLabels= tf.convert_to_tensor(np.array(trainigLabels))
-    # # testLabels= tf.convert_to_tensor(np.array(testLabels))
-    # trainingDataset = util.getDataset(train_images_np, trainigLabels, trainingBbox)
-    # testDataset = util.getDataset(test_images_np, testLabels, testingBbox)
-
-    # DenseNet used  224×224 but the model in the paper 512X512
-    # I copied the 2d Grayscale image 3 times to replicate it being in 3 chanebecause to use imagenet weiths we need 3 chaneles
-
-    # We trained the networks with minibatches of size 8 and used an initial learning rate of 0.0001
-    # that was decayed by a factor of 10 each time the loss on the tuning set plateaued after an epoch (a full pass over the training set).
-    # In order to prevent the networks from overfitting,
-    # early stopping was performed by saving the network after every epoch and choosing the saved network with the lowest loss on the tuning set.
-    EPOCHS = 200
-    BATCH_SIZE = 8
-
-
-
-    trainDataset = tf.data.Dataset.from_tensor_slices((trainingImgages, trainigLabels))
-    trainDataset = trainDataset.map(convertFromPathAndLabelToTensor,num_parallel_calls =BATCH_SIZE)
-    trainDataset = trainDataset.shuffle(5000, reshuffle_each_iteration=True)
-    trainDataset = trainDataset.repeat()  # Mandatory for Keras for now
-    trainDataset = trainDataset.batch(BATCH_SIZE,
-                            drop_remainder=True)  # drop_remainder is important on TPU, batch size must be fixed
-    trainDataset = trainDataset.prefetch(
-        tf.data.AUTOTUNE)
-
-    testDataset = tf.data.Dataset.from_tensor_slices((testListImages, testLabels))
-    testDataset = testDataset.map(convertFromPathAndLabelToTensor,num_parallel_calls =BATCH_SIZE)
-    # testDataset = testDataset.shuffle(5000, reshuffle_each_iteration=True)
-    # testDataset = testDataset.repeat()  # Mandatory for Keras for now
-    testDataset = testDataset.batch(BATCH_SIZE,
-                            drop_remainder=True)  # drop_remainder is important on TPU, batch size must be fixed
-    testDataset = testDataset.prefetch(
-        tf.data.AUTOTUNE)
-
-
-    # densenetModel = model.layers[1]
-    # densenetModel.summary()
-
-    # steps_per_epoch =tf.data.experimental.cardinality(trainingDataset).numpy()
-    # validation_steps=tf.data.experimental.cardinality(testDataset).numpy()
-
-    steps_per_epoch = math.floor(len(trainigLabels) / BATCH_SIZE)
-    validation_steps = math.floor(len(testLabels) / BATCH_SIZE)
-
-
-    reduce_lr_plateau = ReduceLROnPlateau(
-        # monitor='val_accuracy', factor=0.5,
-        monitor='val_loss', factor=0.5,
-        patience=2, verbose=1, min_lr=0.000001
-        )
+    reduce_lr_plateau = ReduceLROnPlateau(monitor='val_loss', factor=0.5,
+                                          patience=3, verbose=1, min_lr=0.00001)
     checkpoint_filepath = './checkpoint/'
 
-    # checkpoint = ModelCheckpoint('model.h5', verbose=1, save_best_only=True)
+
+    class_weights = None
     model_checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
-        './checkpoint/model.{epoch:02d}-{val_auc:.4f}.h5',
+        filepath='./checkpoint/model.{epoch:02d}-{val_auc:.4f}.h5',
         save_weights_only=True,
-        # monitor='val_accuracy',
         monitor='val_auc',
         mode='max',
         verbose=1,
         save_best_only=False)
-
     if trainModel:
-
-        history = model.fit(trainDataset,
-                            steps_per_epoch=steps_per_epoch, validation_data=testDataset,
-                            validation_steps=validation_steps, epochs=EPOCHS,
-                            callbacks=[reduce_lr_plateau, model_checkpoint_callback])
-                            # callbacks=[ model_checkpoint_callback])
-        
-        # history = model.fit_generator(
-        #     generator=train_generator, steps_per_epoch=steps_per_epoch, validation_data=validation_generator,
-        #     validation_steps=validation_steps, epochs=EPOCHS,
-        #     callbacks=[reduce_lr_plateau, model_checkpoint_callback]
-        # )
-        !zip -r /content/file.zip /content/checkpoint/
-        files.download("/content/file.zip")
+        history = model.fit(
+            trainDataset, steps_per_epoch=steps_per_epoch, validation_data=testDataset,
+            validation_steps=validation_steps, epochs=30,
+            callbacks=[reduce_lr_plateau,model_checkpoint_callback], class_weight=class_weights
+        )
+        model.save("CheXnetXt_replica_gabi")
     else:
-        eval = model.predict(testDataset, steps=validation_steps)
-        results = model.evaluate(testDataset, steps=validation_steps, verbose=2)
-        for name, value in zip(model.metrics_names, results):
-            print(name, ': ', value)
-        # images, labels = tuple(zip(*testDataset))
-        # labels = np.array(labels)
-        # y = np.concatenate([y for x, y in testDataset], axis=0)
-        testLabels = testLabels[:validation_steps * BATCH_SIZE]
-        testLabels = tf.convert_to_tensor(testLabels).numpy()
-        plot_cm(testLabels, eval)
-        multiclass_roc_auc_score(testLabels, eval)
 
-        # add heat maps and viz util
-        # To generate the CAMs, images were fed into the fully trained network
-        # and the feature maps from the final convolutional layer were extracted
-        # A map of the most salient features used in classifying the image
-        # as having a specified pathology was computed by taking the weighted sum
-        # of the feature maps using their associated weights in the fully connected layer
-        # select all the layers for which you want to visualize the outputs and store it in a list
-        #     outputLastConv = model.get_layer('bn').output
-        #     vis_model = Model(model.input, outputLastConv)
+        evaluate = True
+        if evaluate:
+            eval = model.predict(testDataset, steps=validation_steps)
+            results = model.evaluate(testDataset, steps=validation_steps, verbose=2)
+            for name, value in zip(model.metrics_names, results):
+                print(name, ': ', value)
+            # images, labels = tuple(zip(*testDataset))
+            # labels = np.array(labels)
+            # y = np.concatenate([y for x, y in testDataset], axis=0)
+            testLabels = Y_test
+            testLabels = tf.convert_to_tensor(testLabels).numpy()
+            plot_cm(testLabels, eval)
+            multiclass_roc_auc_score(testLabels, eval)
+        idx = 660
+        df2 = pd.read_csv('./metadata/Old/BBox_List_2017 (1).csv')
+        row = df2.iloc[idx]
+        actual_label = convertfromNameOfDiseazeToOneHot(row[1])
+        image_path = "./images/" + row[0]
 
-        idx = 98
-        image_path = testListImages[idx]
-        actual_label = testLabels[idx]
-
-        vizualizeCam(actual_label, model, image_path)
+        vizualizeCam(actual_label, model, image_path, np.array(row[2:6].tolist()))
+   

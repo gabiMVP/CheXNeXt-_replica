@@ -1,5 +1,7 @@
 import math
 
+import PIL
+import matplotlib
 import sklearn
 import tensorflow as tf
 from PIL.Image import Image
@@ -10,13 +12,14 @@ import io
 import scipy.misc
 import numpy as np
 import imageio
-from matplotlib import pyplot as plt
+from matplotlib import pyplot as plt, cm
 from six import BytesIO
 from PIL import Image, ImageDraw, ImageFont
 from sklearn.metrics import confusion_matrix, multilabel_confusion_matrix, ConfusionMatrixDisplay, roc_auc_score, \
     roc_curve, auc
 from tensorflow.python.util.compat import as_text
 import seaborn as sns
+import cv2
 
 BATCH_SIZE = 8
 
@@ -294,3 +297,19 @@ def multi_category_focal_loss2(gamma=2., alpha=.25):
         return loss
 
     return multi_category_focal_loss2_fixed
+
+
+def draw_bounding_box_on_image(image,
+                               x,
+                               y,
+                               w,
+                               h,
+                               use_normalized_coordinates=False):
+    x0 = x - w / 2
+    x1 = x + w / 2
+    y0 = y - h / 2
+    y1 = y + h / 2
+    startPoint = (int(x0), int(y0))
+    endpoint = (int(x1), int(y1))
+
+    return cv2.rectangle(image, startPoint, endpoint, color=(0, 255, 0), thickness=2)

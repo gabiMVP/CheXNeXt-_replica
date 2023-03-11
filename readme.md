@@ -20,46 +20,50 @@ and gave me confidence that even such a hard problem can be done by one person
 }
 
 
-Particular problems faced in the implementation:
+Implementation notes:
 
-We are not told to split the dataset in train and test sets based a percentage but are given a list of training and validation picture names,
-this means the clasic flowFromDirectory would not work since it would be a hassle to make code to create fourteen subdirectories based on the dataset.
-I tried two approaches before the final one to load the data :
+I replicated the procedure mentioned in the paper:https://journals.plos.org/plosmedicine/article?id=10.1371/journal.pmed.1002686
+and used tried different approaches for each step
 
-1. Put the pictures as numpy arrays in ndArrays then create a Dataset object from the arrays
-(bad approach as the dataset is too big, and we get out of memory error)
+For augmenting the data:
+- Use a  Keras RandomFlip layer in the model to provide a random horizontal flip to help with over-fitting 
+- Use tf.image.flip_left_right directly in loading the images in the dataset
 
+For training:
+I used different loss functions :
+- BinaryCrossEntropy
+- FocalLoss
+- A customer lossFunction where the positive labels are weighed more since in was noticed that the model even if it gets a good AUC score
+when we see the confusion matrix the sensitivity is low per each disease , this function was meant to emphasize to the model the importance of a positive label
+since in every disease vector there will be a lot less positives than negatives 
 
-2. Use ImageDataGenerator with flow_from_dataframe(very good for this problem as we can just pass the list
- of picture names with the directory, and it will load them dynamically in batches
-, this solved the problem of not wanting to create 14 subdirectories and using flow_from_Directory 
-since we get the same functionality and the memory problem).The dataGenerator has its own built-in function to load the pictures,while debugging I got bad results plotting the image so I did not continue with this approach 
+I also tried:
 
+- different batch sizes(8,16) 
+- different optimizers(Adam,SGD) with different learning rates
 
-4. Final approach to load the data was tf.data.Dataset.from_tensor_slices((trainingImgages, trainigLabels))  
-where trainingImgages are the names of the images, then calling map to a function that loads the images as tensor based on the image name 
-A Keras RandomFlip layer was used to provide a random horizontal flip to help with over-fitting 
+At first, I did not use clas weights and got results close to the paper when it comes to per class AUC,
+when using class weights we see that some classes get better AUC while other get worse ones
 
 To train the model I used google Colab
 I put the code used in googleColabFiles directory 
 
-The algorithm was replicated as in the paper at first,
-I tried 
-- different batch sizes(8,16) 
-- different optimizers(Adam,SGD) with different learning rates
-- different loss functions(Binary Cross Entropy , Binary focal loss from keras, a function found on the internet for focal loss)
-
 I saved the weight after each iteration and use ReduceLearningRate on Plateau using different metrics 
 
-If I were to do the problem again I would make 4 models, 2 with FocalLoss 2 with BinaryCrossEntropy each of these with either SGD or ADAM as the optimizer,
-And with these 4 models try different HyperParameters, For Adam Batch size and Learning rate are very important from the results I saw
+Besides  the normal confusion matrix I also print  the sensitivity and specificity
 
+I also plotted the CAM + Saliency and we compare that to the bounding box provided by the doctors in the dataset(we have 800 images with boudry box to see if the algorithm is detecting in the right place)
+
+Comparative results:
+1. my Model model.13-0.8617.h5 
+optimizer:Adam , Loss:BCE , ClassWeighs:None
 
 <img src="./rez/CMBestAUC.png" alt="Confusion Matrix" />
 
-Besides, the normal confusion matrix I also print  the sensitivity and specificity
 
-| Pathology | CheXNet | my Model model.13-0.8617.h5|
+
+
+| Pathology | CheXNet |model.13-0.8617.h5|
 | ----------- | ----------- |----------- |
 | Atelectasis | 0,8094 | 0.774|
 | Cardiomegaly | 0,9248 | 0.8772|
@@ -78,15 +82,88 @@ Besides, the normal confusion matrix I also print  the sensitivity and specifici
 
 <img src="./rez/AUCBestAUC.png" alt="AUC scores" />
 
-In the AUC Scores I had lower results so far,not as good as CheXNet or as John Zech
-This leads me to believe the RandomFlip needs to be improved to offer a 50 % chance of inversion like in the paper and more searching in the hyperparameter space has to be performed
 
 ### Some Examples
-I added CAM  + Saliency 
 
 <img src="./rez/HeatMapBestAUC.png" alt="Example 1 " />
 
 <img src="./rez/heatMap2bestAUC.png" alt="Example 2" />
+
+
+ 
+2. 8871_bestAUC_BestPrecision
+optimizer:Adam , Loss: Custom Loss BCE, Class weighs: yes
+
+<img src="./trainings and results\rez AI\8871_bestAUC_BestPrecision\8871_bestAUC_BestPrecisionCM.png" alt="Confusion Matrix" />
+
+
+
+
+| Pathology | CheXNet | 8871_bestAUC_BestPrecision|
+| ----------- | ----------- |----------- |
+| Atelectasis | 0,8094 | 0,828|
+| Cardiomegaly | 0,9248 | 0,890|
+| Effusion | 0,8638 | 0,797|
+| Infiltration | 0,7345 | 0,910|
+| Mass | 0,8676 | 0,887|
+| Nodule | 0,7802 | 0,944|
+| Pneumonia | 0,768 | 0,754|
+| Pneumothorax | 0,8887 | 0,925|
+| Consolidation | 0,7901 | 0,642|
+| Edema | 0,8878 | 0.7379 | 0,860|
+| Emphysema | 0,9371 | 0,785|
+| Fibrosis | 0,8047 | 0,784|
+| Pleural Thickening | 0,8062 | 0,783|
+| Hernia | 0,9164 | 0,891|
+
+<img src="./trainings and results\rez AI\8871_bestAUC_BestPrecision\8871_bestAUC_BestPrecisionAUC.png" alt="AUC scores" />
+ 
+### Some Examples
+
+<img src="./trainings and results\rez AI\8871_bestAUC_BestPrecision\8871_bestAUC_BestPrecisionAtel.png" alt="Example 1 " />
+
+<img src="./trainings and results\rez AI\8871_bestAUC_BestPrecision\8871_bestAUC_BestPrecisionCardio.png" alt="Example 2" />
+
+
+
+3. 7641MostTrained -- Overtrained 
+optimizer:Adam , Loss: Custom Loss BCE, Class weighs: yes
+
+<img src="./trainings and results\rez AI\7641MostTrained\7641MostTrainedCM.png" alt="Confusion Matrix" />
+
+
+
+
+| Pathology | CheXNet | 7641MostTrainedCM|
+| ----------- | ----------- |----------- |
+| Atelectasis | 0,8094 | 0,742|
+| Cardiomegaly | 0,9248 | 0,801|
+| Effusion | 0,8638 | 0,683|
+| Infiltration | 0,7345 | 0,794|
+| Mass | 0,8676 | 0,834|
+| Nodule | 0,7802 | 0,889|
+| Pneumonia | 0,768 | 0,641|
+| Pneumothorax | 0,8887 | 0,768|
+| Consolidation | 0,7901 | 0,578|
+| Edema | 0,8878 | 0.7379 | 0,762|
+| Emphysema | 0,9371 | 0,698|
+| Fibrosis | 0,8047 | 0,681|
+| Pleural Thickening | 0,8062 | 0,646|
+| Hernia | 0,9164 | 0,845|
+
+<img src="./trainings and results\rez AI\7641MostTrained\7641MostTrainedAUC.png" alt="AUC scores" />
+ 
+### Some Examples
+
+<img src="./trainings and results\rez AI\7641MostTrained\7641MostTrainedCardio.png" alt="Example 1 " />
+
+<img src="./trainings and results\rez AI\7641MostTrained\7641MostTrainedMass.png" alt="Example 2" />
+
+
+
+
+
+
 
 
 

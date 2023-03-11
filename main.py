@@ -1,176 +1,106 @@
 import math
 import os
+import shutil
 import tarfile
+import urllib.request
 import zipfile
-from random import random
-import tabulate
+
+import cv2
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import scipy as sp
 import tensorflow as tf
-import shutil
-import csv
 import wget
-import zipfile
-import cv2
-import tensorflow_ranking as tfr
-from google_drive_downloader import GoogleDriveDownloader
 from keras.applications.densenet import DenseNet121
-from keras.callbacks import ReduceLROnPlateau, ModelCheckpoint
-from keras_preprocessing.image import ImageDataGenerator
-from sklearn.preprocessing import OneHotEncoder, LabelEncoder
+from keras.callbacks import ReduceLROnPlateau
+from sklearn.model_selection import train_test_split
 from tensorflow.keras import Model
-from tensorflow.keras.optimizers import RMSprop
-from tensorflow.keras.applications.inception_v3 import InceptionV3
-import urllib.request
-import pandas as pd
+
 import Utils as util
 
-trainModel = True
+BATCH_SIZE = 8
+AUTO = tf.data.experimental.AUTOTUNE
+trainModel = False
+CLASS_NAMES = ['Atelectasis', 'Cardiomegaly', 'Effusion', 'Infiltration', 'Mass', 'Nodule', 'Pneumonia',
+               'Pneumothorax', 'Consolidation', 'Edema', 'Emphysema', 'Fibrosis', 'Pleural_Thickening', 'Hernia']
+
+strategy = tf.distribute.MirroredStrategy()
+BATCH_SIZE = BATCH_SIZE * strategy.num_replicas_in_sync
+
+print('Number of devices: {}'.format(strategy.num_replicas_in_sync))
+
+
+def loadImageAndPreprocess(imagepath, label):
+    img = tf.io.read_file(imagepath)
+    # img = tf.py_function(readPixel, [imagepath], [tf.uint8])
+    # print(img)
+    # img = tf.io.decode_raw(img, tf.string)
+    image1 = tf.image.decode_png(img, channels=3)
+    img = tf.image.resize(image1, size=(512, 512), preserve_aspect_ratio=True, method='nearest')
+    mean = np.array([0.485, 0.456, 0.406])
+    std = np.array([0.229, 0.224, 0.225])
+    img = tf.cast(img, tf.float32) / 255.0
+    img = img - mean
+    image = img / std
+    # flip with 50 % probability
+    image = tf.image.flip_left_right(image)
+
+    return image, label
 
 
 def main():
     downloadAndPrepareWorkspace()
-    BATCH_SIZE = 8
-    trainingMode = 0
-    print(f"There are {len(os.listdir('./images'))} images.")
-    # there are 112120 images split in train and Test sets based on the lists in metadata
-    # boundry box data is available only for 988
-    # in the 1st version we will create a new dataset of 988 with Boudry box + 1012 random images for training (2k) and 200 for test
-    trainingList = []
-    testList = []
-    trainingImgages = []
-    testListImages = []
-    trainigLabels = [];
-    testLabels = [];
-    trainingBbox = [];
-    testingBbox = [];
-    testLabelsString = []
-    trainigLabelsString = []
-    train_images_np = []
-    test_images_np = []
-    imageLocation = "./images"
+    imagePrefix = "./images/"
+    df = pd.read_csv('./metadata/Data_Entry_2017_v2020UPDATED.csv', usecols=[0, 1])
+    df['Image Index'] = imagePrefix + df['Image Index'].astype(str)
+    y_entry = df.pop('Finding Labels')
+    y = y_entry.str.get_dummies()
+    y.pop('No Finding')
+    df = pd.concat([df, y], axis=1)
+    columns = df.columns.values
+    X_train, X_test, Y_train, Y_test = train_test_split(df[columns[0]], df[columns[1:]], test_size=0.2, shuffle=False)
+    # test for 1
+    # loadImageAndPreprocess(X_train[0],None)
+    # readPixel(X_train[0])
+    option_no_order = tf.data.Options()
+    option_no_order.experimental_deterministic = False
+    # Train
+    trainDataset = tf.data.Dataset.from_tensor_slices((X_train, Y_train))
+    trainDataset = trainDataset.with_options(option_no_order)
+    trainDataset = trainDataset.map(loadImageAndPreprocess, num_parallel_calls=AUTO)
+    trainDataset = trainDataset.shuffle(2000)
+    # drop_remainder is important on TPU, batch size must be fixed
+    trainDataset = trainDataset.batch(BATCH_SIZE, drop_remainder=True)
+    trainDataset = trainDataset.prefetch(AUTO)
 
-    # Load Data from Lists
+    # Test
+    testDataset = tf.data.Dataset.from_tensor_slices((X_test, Y_test))
+    testDataset = testDataset.map(loadImageAndPreprocess, num_parallel_calls=AUTO)
+    # drop_remainder is important on TPU, batch size must be fixed
+    testDataset = testDataset.batch(BATCH_SIZE, drop_remainder=True)
+    testDataset = testDataset.prefetch(AUTO)
+    Y_train = Y_train.to_numpy()
 
-    with open('./metadata/train_val_list.txt', "r") as f:
-        trainingList = [line.strip() for line in f.read().split('\n')]
-    with open('./metadata/test_list.txt', "r") as f:
-        testList = [line.strip() for line in f.read().split('\n')]
+    # since we have multi label we sum per axis 0 argmax is incorect
+    totalsPerDisease = np.sum(Y_train, axis=0)
+    total = np.sum(totalsPerDisease)
+    # formula per weight :  n_samples / (n_classes * np.bincount(y))
+    weights = total / (len(CLASS_NAMES) * totalsPerDisease)
 
-    # get the data + convert the labest to one hot
-    with open('./metadata/Data_Entry_2017_v2020UPDATED.csv') as csvfile1:
-        csvReader = csv.reader(csvfile1, delimiter=',')
-        next(csvReader)
-        for row in csvReader:
-            if (row[0] in trainingList):
-                image_path = os.path.join(imageLocation, row[0])
-                trainingImgages.append(image_path)
-                trainigLabels.append(util.convertfromNameOfDiseazeToOneHot(row[1]))
-                trainigLabelsString.append(row[1])
-            elif (row[0] in testList):
-                # testList.append(row[0])
-                image_path = os.path.join(imageLocation, row[0])
-                testListImages.append(image_path)
-                testLabels.append(util.convertfromNameOfDiseazeToOneHot(row[1]))
-                testLabelsString.append(row[1])
-
-    print(f"There are {len(trainingList) + len(testList)} images images in total loaded .")
-    print(f"There are {len(trainigLabels) + len(testLabels)} labels loaded.")
-
-    if trainingMode == 0:
-
-        #Train Dataset
-        trainDataset = tf.data.Dataset.from_tensor_slices((trainingImgages, trainigLabels))
-        trainDataset = trainDataset.map(util.convertFromPathAndLabelToTensor, num_parallel_calls=tf.data.AUTOTUNE)
-        trainDataset = trainDataset.shuffle(5000, reshuffle_each_iteration=True)
-        trainDataset = trainDataset.repeat()  # Mandatory for Keras for now
-        trainDataset = trainDataset.batch(BATCH_SIZE,
-                                          drop_remainder=True)  # drop_remainder is important on TPU, batch size must be fixed
-        trainDataset = trainDataset.prefetch(
-            tf.data.AUTOTUNE)
-
-        #Test Dataset -- never repeat and shufle or else imposible to get as stand alone Tensor
-        testDataset = tf.data.Dataset.from_tensor_slices((testListImages, testLabels))
-        testDataset = testDataset.map(util.convertFromPathAndLabelToTensor, num_parallel_calls=tf.data.AUTOTUNE)
-        # testDataset = testDataset.shuffle(5000, reshuffle_each_iteration=True)
-        # testDataset = testDataset.repeat()  # Mandatory for Keras for now
-        testDataset = testDataset.batch(BATCH_SIZE,
-                                        drop_remainder=True)  # drop_remainder is important on TPU, batch size must be fixed
-        testDataset = testDataset.prefetch(
-            tf.data.AUTOTUNE)
-
-    CLASS_NAMES = ['Atelectasis', 'Cardiomegaly', 'Effusion', 'Infiltration', 'Mass', 'Nodule', 'Pneumonia',
-                   'Pneumothorax', 'Consolidation', 'Edema', 'Emphysema', 'Fibrosis', 'Pleural_Thickening', 'Hernia']
-
-    # old Method used to use ImageDataGenerator + FlowFrom Dataframte
-    """
-    if trainingMode == 1:
-        trainigLabels = tf.convert_to_tensor(np.array(trainigLabels)).numpy()
-        train_dict = {"pic": trainingImgages}
-        traindf = pd.DataFrame(data=train_dict)
-        trainDfOneHot = pd.DataFrame(trainigLabels, columns=CLASS_NAMES)
-        traindf = traindf.join(trainDfOneHot)
-
-        testLabels = tf.convert_to_tensor(np.array(testLabels)).numpy()
-        test_dict = {'pic': testListImages}
-        testdf = pd.DataFrame(data=test_dict)
-        testDfOneHot = pd.DataFrame(testLabels, columns=CLASS_NAMES)
-        testdf = testdf.join(testDfOneHot)
-
-        datagen = ImageDataGenerator(preprocessing_function=util.preProcessImage,
-                                     horizontal_flip=False)
-        train_generator = datagen.flow_from_dataframe(
-            dataframe=traindf,
-            x_col="pic",
-            y_col=CLASS_NAMES,
-            color_mode='rgb',
-            subset="training",
-            batch_size=BATCH_SIZE,
-            seed=42,
-            shuffle=False,
-            class_mode="raw",
-            interpolation='bilinear',
-            target_size=(1024,1024))
-
-        datagen1 = ImageDataGenerator(preprocessing_function=util.preProcessImage)
-        validation_generator = datagen1.flow_from_dataframe(
-            dataframe=testdf,
-            x_col="pic",
-            y_col=CLASS_NAMES,
-            batch_size=BATCH_SIZE,
-            seed=42,
-            shuffle=True,
-            class_mode="raw",
-            target_size=(512, 512))
-    """
-    #  Old method where all the data was loaded into Memory -- good for advice as how not to do it ,
-    #  you can not use this approach with large Data as you will overflow the memory , the Dataset and ImageDatagerator objects load dinamically batches of data so they dont flood the memory
-    """
-    if trainingMode == 3:
-        for image in trainingList:
-            image_path = os.path.join(imageLocation, image)
-            train_images_np.append(util.load_image_into_numpy_array(image_path))
-        for image in testList:
-            image_path = os.path.join(imageLocation, image)
-            test_images_np.append(util.load_image_into_numpy_array(image_path))
-        train_images_np = tf.convert_to_tensor(train_images_np)
-        test_images_np = tf.convert_to_tensor(test_images_np)
-        trainigLabels = tf.convert_to_tensor(np.array(trainigLabels))
-        testLabels = tf.convert_to_tensor(np.array(testLabels))
-        trainingDataset = util.getDataset(train_images_np, trainigLabels, trainingBbox)
-        testDataset = util.getDataset(test_images_np, testLabels, testingBbox)
-    """
-
-    model = define_compile_model2()
+    class_weights = dict(enumerate(weights))
+    with strategy.scope():
+        model = define_compile_model()
     model.summary()
-    model.load_weights(filepath="checkpoint/model.13-0.8617.h5")
+
+    model.load_weights(
+        filepath="trainings and results/TrainWithClassWeithsPlusCustomLoss/model.20-0.8029_bestRecall.h5")
     EPOCHS = 20
 
-    steps_per_epoch = math.floor(len(trainigLabels) / BATCH_SIZE)
-    validation_steps = math.floor(len(testLabels) / BATCH_SIZE)
+    steps_per_epoch = math.floor(len(X_train) / BATCH_SIZE)
+    validation_steps = math.floor(len(X_test) / BATCH_SIZE)
 
-    reduce_lr_plateau = ReduceLROnPlateau(monitor='val_auc', factor=0.5,
+    reduce_lr_plateau = ReduceLROnPlateau(monitor='val_loss', factor=0.5,
                                           patience=2, verbose=1, min_lr=0.00001)
     checkpoint_filepath = './checkpoint/'
 
@@ -181,45 +111,91 @@ def main():
         mode='max',
         verbose=1,
         save_best_only=False)
-
     if trainModel:
-        # history = model.fit(trainingDataset,
-        #                     steps_per_epoch=steps_per_epoch, validation_data=testDataset,
-        #                     validation_steps=validation_steps, epochs=EPOCHS,
-        #                     callbacks=[reduce_lr_plateau, model_checkpoint_callback])
-
-        # history = model.fit_generator(
-        #     generator=train_generator, steps_per_epoch=steps_per_epoch, validation_data=validation_generator,
-        #     validation_steps=validation_steps, epochs=EPOCHS,
-        #     callbacks=[reduce_lr_plateau, model_checkpoint_callback]
         history = model.fit(
             trainDataset, steps_per_epoch=steps_per_epoch, validation_data=testDataset,
             validation_steps=validation_steps, epochs=3,
-            callbacks=[model_checkpoint_callback]
+            callbacks=[model_checkpoint_callback], class_weight=class_weights
         )
         model.save("CheXnetXt_replica_gabi")
     else:
+        evaluate = False
+        if evaluate:
+            eval = model.predict(testDataset, steps=validation_steps)
+            results = model.evaluate(testDataset, steps=validation_steps, verbose=2)
+            for name, value in zip(model.metrics_names, results):
+                print(name, ': ', value)
+            # images, labels = tuple(zip(*testDataset))
+            # labels = np.array(labels)
+            # y = np.concatenate([y for x, y in testDataset], axis=0)
+            testLabels = Y_test
+            testLabels = tf.convert_to_tensor(testLabels).numpy()
+            util.plot_cm(testLabels, eval)
+            # util.multiclass_roc_auc_score(testLabels, eval)
+        idx = 304
+        df2 = pd.read_csv('./metadata/Old/BBox_List_2017 (1).csv')
+        row = df2.iloc[idx]
+        actual_label = util.convertfromNameOfDiseazeToOneHot(row[1])
+        image_path = "./images/" + row[0]
 
-        eval = model.predict(testDataset, steps=validation_steps)
-        results = model.evaluate(testDataset, steps=validation_steps, verbose=2)
-        for name, value in zip(model.metrics_names, results):
-            print(name, ': ', value)
-        # images, labels = tuple(zip(*testDataset))
-        # labels = np.array(labels)
-        # y = np.concatenate([y for x, y in testDataset], axis=0)
-        testLabels = testLabels[:validation_steps * BATCH_SIZE]
-        testLabels = tf.convert_to_tensor(testLabels).numpy()
-        util.plot_cm(testLabels, eval)
-        util.multiclass_roc_auc_score(testLabels, eval)
-
-        idx = 98
-        image_path = testListImages[idx]
-        actual_label = testLabels[idx]
-
-        vizualizeCam(actual_label, model, image_path)
+        vizualizeCam(actual_label, model, image_path, np.array(row[2:6].tolist()))
 
 
-def vizualizeCam(actual_label, model, image_path):
+def multi_category_focal_loss2(gamma=2., alpha=.25):
+    """
+    focal loss for multi category of multi label problem
+    适用于多分类或多标签问题的focal loss
+    alpha控制真值y_true为1/0时的权重
+        1的权重为alpha, 0的权重为1-alpha
+    当你的模型欠拟合，学习存在困难时，可以尝试适用本函数作为loss
+    当模型过于激进(无论何时总是倾向于预测出1),尝试将alpha调小
+    当模型过于惰性(无论何时总是倾向于预测出0,或是某一个固定的常数,说明没有学到有效特征)
+        尝试将alpha调大,鼓励模型进行预测出1。
+    Usage:
+     model.compile(loss=[multi_category_focal_loss2(alpha=0.25, gamma=2)], metrics=["accuracy"], optimizer=adam)
+    """
+    epsilon = 1.e-7
+    gamma = float(gamma)
+    alpha = tf.constant(alpha, dtype=tf.float32)
+
+    def multi_category_focal_loss2_fixed(y_true, y_pred):
+        y_true = tf.cast(y_true, tf.float32)
+        y_pred = tf.clip_by_value(y_pred, epsilon, 1. - epsilon)
+
+        alpha_t = y_true * alpha + (tf.ones_like(y_true) - y_true) * (1 - alpha)
+        y_t = tf.multiply(y_true, y_pred) + tf.multiply(1 - y_true, 1 - y_pred)
+        ce = -tf.math.log(y_t)
+        weight = tf.pow(tf.subtract(1., y_t), gamma)
+        fl = tf.multiply(tf.multiply(weight, ce), alpha_t)
+        loss = tf.reduce_mean(fl)
+        return loss
+
+    return multi_category_focal_loss2_fixed
+
+
+def BinaryCrossentropy_extra_weigh_Positive_Example(timesBoost):
+    timesBoost = tf.cast(timesBoost, tf.float32)
+
+    def compute_loss_extra_weigh_Positive_Example(labels, predictions):
+        labels = tf.cast(labels, tf.float32)
+        loss_object = tf.keras.losses.BinaryCrossentropy(reduction=tf.keras.losses.Reduction.SUM)
+        # we use class weights since our data is skewed
+        weights = timesBoost * labels
+        # compute your (unweighted) loss
+        per_example_loss = loss_object(labels, predictions)
+        print(per_example_loss)
+        print(weights)
+        # apply the weights, relying on broadcasting of the multiplication
+        weighted_losses = per_example_loss * weights
+        # reduce the result to get your final loss
+        # loss = tf.reduce_mean(weighted_losses)
+        loss = weighted_losses
+        return loss
+
+    return compute_loss_extra_weigh_Positive_Example
+
+
+def vizualizeCam(actual_label, model, image_path, bboxCoordinates):
     """ add heat maps and viz util
     To generate the CAMs, images were fed into the fully trained network
     and the feature maps from the final convolutional layer were extracted
@@ -231,10 +207,16 @@ def vizualizeCam(actual_label, model, image_path):
         vis_model = Model(model.input, outputLastConv)
     """
     actualImageforDisplayNotNormalized = util.load_image_into_numpy_arrayNoNormalized(image_path).numpy()
+    # we rezise from 1024 to 512 so we divide the bonding box number by 2
+    bboxCoordinates = bboxCoordinates / 2
+    actualImageforDisplayNotNormalized = util.draw_bounding_box_on_image(actualImageforDisplayNotNormalized,
+                                                                         bboxCoordinates[0], bboxCoordinates[1],
+                                                                         bboxCoordinates[2], bboxCoordinates[3])
+
     sample_image = util.load_image_into_numpy_array(image_path).numpy()
     sample_image_processed = np.expand_dims(sample_image, axis=0)
     pred_label = model.predict(sample_image_processed)[0]
-    heatmap = get_CAM(model, sample_image_processed, actual_label, layer_name='bn')
+    heatmap = get_CAM_with_Saliency(model, sample_image_processed, actual_label, layer_name='bn')
     heatmap = cv2.resize(heatmap, (sample_image.shape[0], sample_image.shape[1]))
     heatmap = heatmap * 255
     heatmap = np.clip(heatmap, 0, 255).astype(np.uint8)
@@ -244,8 +226,6 @@ def vizualizeCam(actual_label, model, image_path):
     sample_activation = get_CAM_simple(model, sample_image_processed)
     f, ax = plt.subplots(2, 2, figsize=(40, 20))
 
-    CLASS_NAMES = ['Atelectasis', 'Cardiomegaly', 'Effusion', 'Infiltration', 'Mass', 'Nodule', 'Pneumonia',
-                   'Pneumothorax', 'Consolidation', 'Edema', 'Emphysema', 'Fibrosis', 'Pleural_Thickening', 'Hernia']
     data = {'lables': CLASS_NAMES,
             'Actual_Labeles': actual_label,
             'Predicted_label:': pred_label
@@ -261,17 +241,17 @@ def vizualizeCam(actual_label, model, image_path):
     ax[0, 1].set_title("Class activation map")
     ax[0, 1].axis('off')
     ax[1, 0].imshow(heatmap)
-    ax[1, 0].set_title("Heat Map")
+    ax[1, 0].set_title("Heat Map / Saliency ")
     ax[1, 0].axis('off')
     ax[1, 1].imshow(super_imposed_image)
-    ax[1, 1].set_title("Activation map superimposed")
+    ax[1, 1].set_title("Activation map superimposed Saliency ")
     ax[1, 1].axis('off')
     plt.subplots_adjust(wspace=0.40, hspace=0.1)
     f.suptitle(printDf.to_markdown())
     plt.show()
 
 
-def get_CAM(model, processed_image, actual_label, layer_name='bn'):
+def get_CAM_with_Saliency(model, processed_image, actual_label, layer_name='bn'):
     # we used the last batchNormalization Layer of the Densenet Model where
     # layer_name = 'conv5_block16_concat'
     x = model.get_layer(layer_name)
@@ -288,7 +268,7 @@ def get_CAM(model, processed_image, actual_label, layer_name='bn'):
         predictions = predictions[0]
 
         # loss = multi_category_focal_loss2(gamma=2., alpha=.25)(expected_output, predictions)
-        loss=tf.keras.losses.BinaryCrossentropy(from_logits=False)(expected_output, predictions)
+        loss = BinaryCrossentropy_extra_weigh_Positive_Example(2)(expected_output, predictions)
 
     # nu merge bine bp aici
     # get the gradient of the loss with respect to the outputs of the last conv layer
@@ -325,7 +305,7 @@ def get_CAM_simple(model, processed_image):
     # compute the intensity of each feature in the CAM
     predicted = np.argmax(predictions)
     # We get the weights for diseaze x then dot with the features the final conv layer extracted(batch normalization of different conv layers here)
-    #Optional make a vector of predicted diseazes then get the weiths for them all . do the dot for each and add
+    # Optional make a vector of predicted diseazes then get the weiths for them all . do the dot for each and add
     class_activation_weights = gap_weights[:, predicted]
     cam_output = np.dot(class_activation_features, class_activation_weights)
     # cam_output = cam_output.mean(axis=-1)
@@ -337,38 +317,10 @@ def get_CAM_simple(model, processed_image):
     return cam_output
 
 
-def feature_extractor(inputs):
-    feature_extractor = DenseNet121(weights='imagenet', include_top=False, input_shape=(512, 512, 3))(inputs)
-
-    return feature_extractor
-
-
-def classifier(inputs):
-    # add flatten larye because  8, 16, 16, 14 shape of final model before
-    averagePool = tf.keras.layers.GlobalAveragePooling2D()(inputs)
-    x = tf.keras.layers.Dense(14, activation='sigmoid', name="classification")(averagePool)
-    return x
-
-
-def final_model(inputs):
-    # resize = tf.keras.layers.UpSampling2D(size=(7,7))(inputs)  Usedfull if rezise
-
-    densenet_feature_extractor = feature_extractor(inputs)
-    classification_output = classifier(densenet_feature_extractor)
-
-    return classification_output
-
-
 def define_compile_model():
-    inputs = tf.keras.layers.Input(shape=(512, 512, 3))
-
     feature_extractor = DenseNet121(weights='imagenet', include_top=False, input_shape=(512, 512, 3))
     averagePool = tf.keras.layers.GlobalAveragePooling2D()(feature_extractor.output)
     output = tf.keras.layers.Dense(14, activation='sigmoid', name="classification")(averagePool)
-
-    tf.keras.losses.BinaryFocalCrossentropy
-    # loss = tfr.keras.losses.SigmoidCrossEntropyLoss()
-    # classification_output = final_model(inputs)
     METRICS = [
         tf.keras.metrics.TruePositives(name='tp'),
         tf.keras.metrics.FalsePositives(name='fp'),
@@ -382,53 +334,10 @@ def define_compile_model():
         tf.keras.metrics.AUC(name='prc', curve='PR'),  # precision-recall curve
     ]
     model = tf.keras.Model(inputs=feature_extractor.input, outputs=output)
-    # optimizer = tf.keras.optimizers.Adam(learning_rate=0.0001)
-    optimizer = tf.keras.optimizers.experimental.AdamW(learning_rate=0.0001)
+    optimizer = tf.keras.optimizers.experimental.Adam(learning_rate=0.0001)
     model.compile(optimizer=optimizer,
-                  # loss=[multi_category_focal_loss2(alpha=0.25, gamma=2)],
-                  loss='binary_crossentropy',
-
-                  metrics=METRICS)
-
-    return model
-
-
-def define_compile_model2():
-    inputs = tf.keras.layers.Input(shape=(512, 512, 3))
-    x = tf.keras.layers.RandomFlip("horizontal", seed=62)(inputs)
-    x = DenseNet121(weights='imagenet', include_top=False, input_shape=(512, 512, 3), input_tensor=x)
-    feature_extractor = x.output
-    # feature_extractor = DenseNet121(weights='imagenet', include_top=False, input_shape=(512, 512, 3))(x)
-
-    averagePool = tf.keras.layers.GlobalAveragePooling2D()(feature_extractor)
-    output = tf.keras.layers.Dense(14, activation='sigmoid', name="classification")(averagePool)
-
-    # binary_crossentropy rupe
-    # loss = tfr.keras.losses.SigmoidCrossEntropyLoss()
-    # classification_output = final_model(inputs)
-    METRICS = [
-        tf.keras.metrics.TruePositives(name='tp'),
-        tf.keras.metrics.FalsePositives(name='fp'),
-        tf.keras.metrics.TrueNegatives(name='tn'),
-        tf.keras.metrics.FalseNegatives(name='fn'),
-        tf.keras.metrics.BinaryAccuracy(name='Binary Accuracy'),
-        tf.keras.metrics.CategoricalAccuracy(name='Categorical Accuracy'),
-        tf.keras.metrics.Precision(name='precision'),
-        tf.keras.metrics.Recall(name='recall'),
-        tf.keras.metrics.AUC(name='auc'),
-        tf.keras.metrics.AUC(name='prc', curve='PR'),  # precision-recall curve
-    ]
-    loss = tf.keras.losses.BinaryFocalCrossentropy(gamma=5)
-    model = tf.keras.Model(inputs=inputs, outputs=output)
-    # optimizer = tf.keras.optimizers.Adam(learning_rate=0.0001)
-    optimizer = tf.keras.optimizers.Adam(learning_rate=0.0001)
-    # optimizer = tf.keras.optimizers.SGD(learning_rate=0.01, momentum=0.9)
-    # optimizer = tf.keras.optimizers.experimental.AdamW(learning_rate=0.0001)
-    model.compile(optimizer=optimizer,
-                  # loss='binary_focal_crossentropy',
-                  loss='binary_crossentropy',
-                  # loss=[multi_category_focal_loss2(alpha=0.25, gamma=5)],
-                  # loss = loss,
+                  loss=[BinaryCrossentropy_extra_weigh_Positive_Example(2)],
+                  # loss='binary_crossentropy',
                   metrics=METRICS)
 
     return model
