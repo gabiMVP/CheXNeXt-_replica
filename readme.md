@@ -85,8 +85,6 @@ optimizer:Adam , Loss:BCE , ClassWeighs:None
 
 ### Some Examples
 
-<img src="./rez/HeatMapBestAUC.png" alt="Example 1 " />
-
 <img src="./rez/heatMap2bestAUC.png" alt="Example 2" />
 
 
@@ -94,13 +92,14 @@ optimizer:Adam , Loss:BCE , ClassWeighs:None
 2. 8871_bestAUC_BestPrecision
 optimizer:Adam , Loss: Custom Loss BCE, Class weighs: yes
 
+
 <img src="./trainings and results\rez AI\8871_bestAUC_BestPrecision\8871_bestAUC_BestPrecisionCM.png" alt="Confusion Matrix" />
 
 
 
 
 | Pathology | CheXNet | 8871_bestAUC_BestPrecision|
-| ----------- | ----------- |----------- |
+| ----------- | ----------- |---------- |
 | Atelectasis | 0,8094 | 0,828|
 | Cardiomegaly | 0,9248 | 0,890|
 | Effusion | 0,8638 | 0,797|
@@ -110,7 +109,7 @@ optimizer:Adam , Loss: Custom Loss BCE, Class weighs: yes
 | Pneumonia | 0,768 | 0,754|
 | Pneumothorax | 0,8887 | 0,925|
 | Consolidation | 0,7901 | 0,642|
-| Edema | 0,8878 | 0.7379 | 0,860|
+| Edema | 0,8878 | 0.737 | 0,860|
 | Emphysema | 0,9371 | 0,785|
 | Fibrosis | 0,8047 | 0,784|
 | Pleural Thickening | 0,8062 | 0,783|
@@ -119,43 +118,10 @@ optimizer:Adam , Loss: Custom Loss BCE, Class weighs: yes
 <img src="./trainings and results\rez AI\8871_bestAUC_BestPrecision\8871_bestAUC_BestPrecisionAUC.png" alt="AUC scores" />
  
 ### Some Examples
-
-<img src="./trainings and results\rez AI\8871_bestAUC_BestPrecision\8871_bestAUC_BestPrecisionAtel.png" alt="Example 1 " />
-
-<img src="./trainings and results\rez AI\8871_bestAUC_BestPrecision\8871_bestAUC_BestPrecisionCardio.png" alt="Example 2" />
+<img src="./trainings and results\rez AI\8871_bestAUC_BestPrecision\atel2.png" alt="Confusion Matrix" />
 
 
-
-3. 7641MostTrained -- Overtrained 
-optimizer:Adam , Loss: Custom Loss BCE, Class weighs: yes
-
-<img src="./trainings and results\rez AI\7641MostTrained\7641MostTrainedCM.png" alt="Confusion Matrix" />
-
-
-
-
-| Pathology | CheXNet | 7641MostTrainedCM|
-| ----------- | ----------- |----------- |
-| Atelectasis | 0,8094 | 0,742|
-| Cardiomegaly | 0,9248 | 0,801|
-| Effusion | 0,8638 | 0,683|
-| Infiltration | 0,7345 | 0,794|
-| Mass | 0,8676 | 0,834|
-| Nodule | 0,7802 | 0,889|
-| Pneumonia | 0,768 | 0,641|
-| Pneumothorax | 0,8887 | 0,768|
-| Consolidation | 0,7901 | 0,578|
-| Edema | 0,8878 | 0.7379 | 0,762|
-| Emphysema | 0,9371 | 0,698|
-| Fibrosis | 0,8047 | 0,681|
-| Pleural Thickening | 0,8062 | 0,646|
-| Hernia | 0,9164 | 0,845|
-
-<img src="./trainings and results\rez AI\7641MostTrained\7641MostTrainedAUC.png" alt="AUC scores" />
  
-### Some Examples
-
-<img src="./trainings and results\rez AI\7641MostTrained\7641MostTrainedCardio.png" alt="Example 1 " />
 
 <img src="./trainings and results\rez AI\7641MostTrained\7641MostTrainedMass.png" alt="Example 2" />
 
