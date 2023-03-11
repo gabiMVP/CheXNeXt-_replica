@@ -1,0 +1,94 @@
+Epoch 1/30
+11212/11212 [==============================] - ETA: 0s - loss: 0.1561 - tp: 2687.0000 - fp: 4369.0000 - tn: 1186534.0000 - fn: 62154.0000 - Binary Accuracy: 0.9470 - Categorical Accuracy: 0.1450 - precision: 0.3808 - recall: 0.0414 - auc: 0.7965 - prc: 0.1967
+Epoch 1: saving model to ./checkpoint/model.01-0.7683.h5
+11212/11212 [==============================] - 1368s 116ms/step - loss: 0.1561 - tp: 2687.0000 - fp: 4369.0000 - tn: 1186534.0000 - fn: 62154.0000 - Binary Accuracy: 0.9470 - Categorical Accuracy: 0.1450 - precision: 0.3808 - recall: 0.0414 - auc: 0.7965 - prc: 0.1967 - val_loss: 0.2159 - val_tp: 2127.0000 - val_fp: 8014.0000 - val_tn: 289587.0000 - val_fn: 14208.0000 - val_Binary Accuracy: 0.9292 - val_Categorical Accuracy: 0.0848 - val_precision: 0.2097 - val_recall: 0.1302 - val_auc: 0.7683 - val_prc: 0.1539 - lr: 1.0000e-04
+Epoch 2/30
+11212/11212 [==============================] - ETA: 0s - loss: 0.1465 - tp: 4391.0000 - fp: 5413.0000 - tn: 1185490.0000 - fn: 60450.0000 - Binary Accuracy: 0.9476 - Categorical Accuracy: 0.1736 - precision: 0.4479 - recall: 0.0677 - auc: 0.8257 - prc: 0.2414
+Epoch 2: saving model to ./checkpoint/model.02-0.8361.h5
+11212/11212 [==============================] - 1302s 116ms/step - loss: 0.1465 - tp: 4391.0000 - fp: 5413.0000 - tn: 1185490.0000 - fn: 60450.0000 - Binary Accuracy: 0.9476 - Categorical Accuracy: 0.1736 - precision: 0.4479 - recall: 0.0677 - auc: 0.8257 - prc: 0.2414 - val_loss: 0.1769 - val_tp: 2467.0000 - val_fp: 4035.0000 - val_tn: 293566.0000 - val_fn: 13868.0000 - val_Binary Accuracy: 0.9430 - val_Categorical Accuracy: 0.1516 - val_precision: 0.3794 - val_recall: 0.1510 - val_auc: 0.8361 - val_prc: 0.2446 - lr: 1.0000e-04
+Epoch 3/30
+11212/11212 [==============================] - ETA: 0s - loss: 0.1402 - tp: 5704.0000 - fp: 6501.0000 - tn: 1184402.0000 - fn: 59137.0000 - Binary Accuracy: 0.9477 - Categorical Accuracy: 0.1934 - precision: 0.4673 - recall: 0.0880 - auc: 0.8397 - prc: 0.2637
+Epoch 3: saving model to ./checkpoint/model.03-0.8547.h5
+11212/11212 [==============================] - 1314s 117ms/step - loss: 0.1402 - tp: 5704.0000 - fp: 6501.0000 - tn: 1184402.0000 - fn: 59137.0000 - Binary Accuracy: 0.9477 - Categorical Accuracy: 0.1934 - precision: 0.4673 - recall: 0.0880 - auc: 0.8397 - prc: 0.2637 - val_loss: 0.1641 - val_tp: 1954.0000 - val_fp: 2111.0000 - val_tn: 295490.0000 - val_fn: 14381.0000 - val_Binary Accuracy: 0.9475 - val_Categorical Accuracy: 0.2017 - val_precision: 0.4807 - val_recall: 0.1196 - val_auc: 0.8547 - val_prc: 0.2807 - lr: 1.0000e-04
+Epoch 4/30
+11212/11212 [==============================] - ETA: 0s - loss: 0.1365 - tp: 6662.0000 - fp: 7110.0000 - tn: 1183793.0000 - fn: 58179.0000 - Binary Accuracy: 0.9480 - Categorical Accuracy: 0.2032 - precision: 0.4837 - recall: 0.1027 - auc: 0.8483 - prc: 0.2799
+Epoch 4: saving model to ./checkpoint/model.04-0.8392.h5
+11212/11212 [==============================] - 1298s 115ms/step - loss: 0.1365 - tp: 6662.0000 - fp: 7110.0000 - tn: 1183793.0000 - fn: 58179.0000 - Binary Accuracy: 0.9480 - Categorical Accuracy: 0.2032 - precision: 0.4837 - recall: 0.1027 - auc: 0.8483 - prc: 0.2799 - val_loss: 0.1785 - val_tp: 2136.0000 - val_fp: 4327.0000 - val_tn: 293274.0000 - val_fn: 14199.0000 - val_Binary Accuracy: 0.9410 - val_Categorical Accuracy: 0.1483 - val_precision: 0.3305 - val_recall: 0.1308 - val_auc: 0.8392 - val_prc: 0.2320 - lr: 1.0000e-04
+Epoch 5/30
+11212/11212 [==============================] - ETA: 0s - loss: 0.1318 - tp: 7502.0000 - fp: 7799.0000 - tn: 1183104.0000 - fn: 57339.0000 - Binary Accuracy: 0.9481 - Categorical Accuracy: 0.2114 - precision: 0.4903 - recall: 0.1157 - auc: 0.8566 - prc: 0.2935
+Epoch 5: saving model to ./checkpoint/model.05-0.8587.h5
+11212/11212 [==============================] - 1298s 115ms/step - loss: 0.1318 - tp: 7502.0000 - fp: 7799.0000 - tn: 1183104.0000 - fn: 57339.0000 - Binary Accuracy: 0.9481 - Categorical Accuracy: 0.2114 - precision: 0.4903 - recall: 0.1157 - auc: 0.8566 - prc: 0.2935 - val_loss: 0.1658 - val_tp: 2517.0000 - val_fp: 3414.0000 - val_tn: 294187.0000 - val_fn: 13818.0000 - val_Binary Accuracy: 0.9451 - val_Categorical Accuracy: 0.1926 - val_precision: 0.4244 - val_recall: 0.1541 - val_auc: 0.8587 - val_prc: 0.2782 - lr: 1.0000e-04
+Epoch 6/30
+11212/11212 [==============================] - ETA: 0s - loss: 0.1272 - tp: 8666.0000 - fp: 8484.0000 - tn: 1182419.0000 - fn: 56175.0000 - Binary Accuracy: 0.9485 - Categorical Accuracy: 0.2203 - precision: 0.5053 - recall: 0.1337 - auc: 0.8643 - prc: 0.3094
+Epoch 6: saving model to ./checkpoint/model.06-0.8700.h5
+11212/11212 [==============================] - 1297s 115ms/step - loss: 0.1272 - tp: 8666.0000 - fp: 8484.0000 - tn: 1182419.0000 - fn: 56175.0000 - Binary Accuracy: 0.9485 - Categorical Accuracy: 0.2203 - precision: 0.5053 - recall: 0.1337 - auc: 0.8643 - prc: 0.3094 - val_loss: 0.1592 - val_tp: 2765.0000 - val_fp: 3285.0000 - val_tn: 294316.0000 - val_fn: 13570.0000 - val_Binary Accuracy: 0.9463 - val_Categorical Accuracy: 0.2636 - val_precision: 0.4570 - val_recall: 0.1693 - val_auc: 0.8700 - val_prc: 0.3008 - lr: 1.0000e-04
+Epoch 7/30
+11212/11212 [==============================] - ETA: 0s - loss: 0.1230 - tp: 9776.0000 - fp: 9004.0000 - tn: 1181899.0000 - fn: 55065.0000 - Binary Accuracy: 0.9490 - Categorical Accuracy: 0.2284 - precision: 0.5206 - recall: 0.1508 - auc: 0.8716 - prc: 0.3275
+Epoch 7: saving model to ./checkpoint/model.07-0.8584.h5
+11212/11212 [==============================] - 1294s 115ms/step - loss: 0.1230 - tp: 9776.0000 - fp: 9004.0000 - tn: 1181899.0000 - fn: 55065.0000 - Binary Accuracy: 0.9490 - Categorical Accuracy: 0.2284 - precision: 0.5206 - recall: 0.1508 - auc: 0.8716 - prc: 0.3275 - val_loss: 0.1644 - val_tp: 2565.0000 - val_fp: 3130.0000 - val_tn: 294471.0000 - val_fn: 13770.0000 - val_Binary Accuracy: 0.9462 - val_Categorical Accuracy: 0.1905 - val_precision: 0.4504 - val_recall: 0.1570 - val_auc: 0.8584 - val_prc: 0.2864 - lr: 1.0000e-04
+Epoch 8/30
+11212/11212 [==============================] - ETA: 0s - loss: 0.1178 - tp: 11028.0000 - fp: 9705.0000 - tn: 1181198.0000 - fn: 53813.0000 - Binary Accuracy: 0.9494 - Categorical Accuracy: 0.2379 - precision: 0.5319 - recall: 0.1701 - auc: 0.8790 - prc: 0.3457
+Epoch 8: saving model to ./checkpoint/model.08-0.8500.h5
+11212/11212 [==============================] - 1301s 115ms/step - loss: 0.1178 - tp: 11028.0000 - fp: 9705.0000 - tn: 1181198.0000 - fn: 53813.0000 - Binary Accuracy: 0.9494 - Categorical Accuracy: 0.2379 - precision: 0.5319 - recall: 0.1701 - auc: 0.8790 - prc: 0.3457 - val_loss: 0.1713 - val_tp: 3527.0000 - val_fp: 5308.0000 - val_tn: 292293.0000 - val_fn: 12808.0000 - val_Binary Accuracy: 0.9423 - val_Categorical Accuracy: 0.2236 - val_precision: 0.3992 - val_recall: 0.2159 - val_auc: 0.8500 - val_prc: 0.2763 - lr: 1.0000e-04
+Epoch 9/30
+11212/11212 [==============================] - ETA: 0s - loss: 0.1108 - tp: 12915.0000 - fp: 10402.0000 - tn: 1180501.0000 - fn: 51926.0000 - Binary Accuracy: 0.9504 - Categorical Accuracy: 0.2538 - precision: 0.5539 - recall: 0.1992 - auc: 0.8889 - prc: 0.3745
+Epoch 9: ReduceLROnPlateau reducing learning rate to 4.999999873689376e-05.
+
+Epoch 9: saving model to ./checkpoint/model.09-0.8535.h5
+11212/11212 [==============================] - 1304s 116ms/step - loss: 0.1108 - tp: 12915.0000 - fp: 10402.0000 - tn: 1180501.0000 - fn: 51926.0000 - Binary Accuracy: 0.9504 - Categorical Accuracy: 0.2538 - precision: 0.5539 - recall: 0.1992 - auc: 0.8889 - prc: 0.3745 - val_loss: 0.1758 - val_tp: 3546.0000 - val_fp: 6233.0000 - val_tn: 291368.0000 - val_fn: 12789.0000 - val_Binary Accuracy: 0.9394 - val_Categorical Accuracy: 0.1940 - val_precision: 0.3626 - val_recall: 0.2171 - val_auc: 0.8535 - val_prc: 0.2609 - lr: 1.0000e-04
+
+started from 9
+
+_______________________________________________________
+Epoch 1/30
+11212/11212 [==============================] - ETA: 0s - loss: 0.1019 - tp: 15296.0000 - fp: 10970.0000 - tn: 1179933.0000 - fn: 49545.0000 - Binary Accuracy: 0.9518 - Categorical Accuracy: 0.2681 - precision: 0.5823 - recall: 0.2359 - auc: 0.9004 - prc: 0.4120
+Epoch 1: saving model to ./checkpoint/model.01-0.8447.h5
+11212/11212 [==============================] - 1362s 116ms/step - loss: 0.1019 - tp: 15296.0000 - fp: 10970.0000 - tn: 1179933.0000 - fn: 49545.0000 - Binary Accuracy: 0.9518 - Categorical Accuracy: 0.2681 - precision: 0.5823 - recall: 0.2359 - auc: 0.9004 - prc: 0.4120 - val_loss: 0.1801 - val_tp: 3154.0000 - val_fp: 5260.0000 - val_tn: 292341.0000 - val_fn: 13181.0000 - val_Binary Accuracy: 0.9413 - val_Categorical Accuracy: 0.1824 - val_precision: 0.3749 - val_recall: 0.1931 - val_auc: 0.8447 - val_prc: 0.2565 - lr: 1.0000e-04
+Epoch 2/30
+11212/11212 [==============================] - ETA: 0s - loss: 0.0927 - tp: 17859.0000 - fp: 11073.0000 - tn: 1179830.0000 - fn: 46982.0000 - Binary Accuracy: 0.9538 - Categorical Accuracy: 0.2874 - precision: 0.6173 - recall: 0.2754 - auc: 0.9113 - prc: 0.4574
+Epoch 2: saving model to ./checkpoint/model.02-0.8365.h5
+11212/11212 [==============================] - 1305s 116ms/step - loss: 0.0927 - tp: 17859.0000 - fp: 11073.0000 - tn: 1179830.0000 - fn: 46982.0000 - Binary Accuracy: 0.9538 - Categorical Accuracy: 0.2874 - precision: 0.6173 - recall: 0.2754 - auc: 0.9113 - prc: 0.4574 - val_loss: 0.1888 - val_tp: 3970.0000 - val_fp: 7826.0000 - val_tn: 289775.0000 - val_fn: 12365.0000 - val_Binary Accuracy: 0.9357 - val_Categorical Accuracy: 0.2138 - val_precision: 0.3366 - val_recall: 0.2430 - val_auc: 0.8365 - val_prc: 0.2561 - lr: 1.0000e-04
+Epoch 3/30
+11212/11212 [==============================] - ETA: 0s - loss: 0.0843 - tp: 20484.0000 - fp: 11285.0000 - tn: 1179618.0000 - fn: 44357.0000 - Binary Accuracy: 0.9557 - Categorical Accuracy: 0.3047 - precision: 0.6448 - recall: 0.3159 - auc: 0.9212 - prc: 0.5022
+Epoch 3: saving model to ./checkpoint/model.03-0.8393.h5
+11212/11212 [==============================] - 1295s 115ms/step - loss: 0.0843 - tp: 20484.0000 - fp: 11285.0000 - tn: 1179618.0000 - fn: 44357.0000 - Binary Accuracy: 0.9557 - Categorical Accuracy: 0.3047 - precision: 0.6448 - recall: 0.3159 - auc: 0.9212 - prc: 0.5022 - val_loss: 0.1867 - val_tp: 3865.0000 - val_fp: 7391.0000 - val_tn: 290210.0000 - val_fn: 12470.0000 - val_Binary Accuracy: 0.9367 - val_Categorical Accuracy: 0.2133 - val_precision: 0.3434 - val_recall: 0.2366 - val_auc: 0.8393 - val_prc: 0.2562 - lr: 1.0000e-04
+Epoch 4/30
+11212/11212 [==============================] - ETA: 0s - loss: 0.0758 - tp: 23559.0000 - fp: 10990.0000 - tn: 1179913.0000 - fn: 41282.0000 - Binary Accuracy: 0.9584 - Categorical Accuracy: 0.3219 - precision: 0.6819 - recall: 0.3633 - auc: 0.9309 - prc: 0.5526
+Epoch 4: ReduceLROnPlateau reducing learning rate to 4.999999873689376e-05.
+
+Epoch 4: saving model to ./checkpoint/model.04-0.8300.h5
+11212/11212 [==============================] - 1299s 115ms/step - loss: 0.0758 - tp: 23559.0000 - fp: 10990.0000 - tn: 1179913.0000 - fn: 41282.0000 - Binary Accuracy: 0.9584 - Categorical Accuracy: 0.3219 - precision: 0.6819 - recall: 0.3633 - auc: 0.9309 - prc: 0.5526 - val_loss: 0.1981 - val_tp: 3443.0000 - val_fp: 7160.0000 - val_tn: 290441.0000 - val_fn: 12892.0000 - val_Binary Accuracy: 0.9361 - val_Categorical Accuracy: 0.1737 - val_precision: 0.3247 - val_recall: 0.2108 - val_auc: 0.8300 - val_prc: 0.2335 - lr: 1.0000e-04
+Epoch 5/30
+11212/11212 [==============================] - ETA: 0s - loss: 0.0583 - tp: 29685.0000 - fp: 8964.0000 - tn: 1181939.0000 - fn: 35156.0000 - Binary Accuracy: 0.9649 - Categorical Accuracy: 0.3616 - precision: 0.7681 - recall: 0.4578 - auc: 0.9519 - prc: 0.6684
+Epoch 5: saving model to ./checkpoint/model.05-0.8272.h5
+11212/11212 [==============================] - 1291s 114ms/step - loss: 0.0583 - tp: 29685.0000 - fp: 8964.0000 - tn: 1181939.0000 - fn: 35156.0000 - Binary Accuracy: 0.9649 - Categorical Accuracy: 0.3616 - precision: 0.7681 - recall: 0.4578 - auc: 0.9519 - prc: 0.6684 - val_loss: 0.1974 - val_tp: 3631.0000 - val_fp: 6293.0000 - val_tn: 291308.0000 - val_fn: 12704.0000 - val_Binary Accuracy: 0.9395 - val_Categorical Accuracy: 0.2486 - val_precision: 0.3659 - val_recall: 0.2223 - val_auc: 0.8272 - val_prc: 0.2599 - lr: 5.0000e-05
+Epoch 6/30
+11212/11212 [==============================] - ETA: 0s - loss: 0.0472 - tp: 34484.0000 - fp: 8106.0000 - tn: 1182797.0000 - fn: 30357.0000 - Binary Accuracy: 0.9694 - Categorical Accuracy: 0.3861 - precision: 0.8097 - recall: 0.5318 - auc: 0.9634 - prc: 0.7416
+Epoch 6: saving model to ./checkpoint/model.06-0.8157.h5
+11212/11212 [==============================] - 1295s 115ms/step - loss: 0.0472 - tp: 34484.0000 - fp: 8106.0000 - tn: 1182797.0000 - fn: 30357.0000 - Binary Accuracy: 0.9694 - Categorical Accuracy: 0.3861 - precision: 0.8097 - recall: 0.5318 - auc: 0.9634 - prc: 0.7416 - val_loss: 0.2155 - val_tp: 3470.0000 - val_fp: 6719.0000 - val_tn: 290882.0000 - val_fn: 12865.0000 - val_Binary Accuracy: 0.9376 - val_Categorical Accuracy: 0.2034 - val_precision: 0.3406 - val_recall: 0.2124 - val_auc: 0.8157 - val_prc: 0.2441 - lr: 5.0000e-05
+Epoch 7/30
+11212/11212 [==============================] - ETA: 0s - loss: 0.0396 - tp: 38795.0000 - fp: 7372.0000 - tn: 1183531.0000 - fn: 26046.0000 - Binary Accuracy: 0.9734 - Categorical Accuracy: 0.3993 - precision: 0.8403 - recall: 0.5983 - auc: 0.9725 - prc: 0.7963
+Epoch 7: ReduceLROnPlateau reducing learning rate to 2.499999936844688e-05.
+
+Epoch 7: saving model to ./checkpoint/model.07-0.8096.h5
+11212/11212 [==============================] - 1301s 115ms/step - loss: 0.0396 - tp: 38795.0000 - fp: 7372.0000 - tn: 1183531.0000 - fn: 26046.0000 - Binary Accuracy: 0.9734 - Categorical Accuracy: 0.3993 - precision: 0.8403 - recall: 0.5983 - auc: 0.9725 - prc: 0.7963 - val_loss: 0.2211 - val_tp: 3759.0000 - val_fp: 6991.0000 - val_tn: 290610.0000 - val_fn: 12576.0000 - val_Binary Accuracy: 0.9377 - val_Categorical Accuracy: 0.2275 - val_precision: 0.3497 - val_recall: 0.2301 - val_auc: 0.8096 - val_prc: 0.2543 - lr: 5.0000e-05
+Epoch 8/30
+11212/11212 [==============================] - ETA: 0s - loss: 0.0295 - tp: 44489.0000 - fp: 5467.0000 - tn: 1185436.0000 - fn: 20352.0000 - Binary Accuracy: 0.9794 - Categorical Accuracy: 0.4128 - precision: 0.8906 - recall: 0.6861 - auc: 0.9834 - prc: 0.8695
+Epoch 8: saving model to ./checkpoint/model.08-0.7975.h5
+11212/11212 [==============================] - 1298s 115ms/step - loss: 0.0295 - tp: 44489.0000 - fp: 5467.0000 - tn: 1185436.0000 - fn: 20352.0000 - Binary Accuracy: 0.9794 - Categorical Accuracy: 0.4128 - precision: 0.8906 - recall: 0.6861 - auc: 0.9834 - prc: 0.8695 - val_loss: 0.2357 - val_tp: 3769.0000 - val_fp: 7268.0000 - val_tn: 290333.0000 - val_fn: 12566.0000 - val_Binary Accuracy: 0.9368 - val_Categorical Accuracy: 0.2189 - val_precision: 0.3415 - val_recall: 0.2307 - val_auc: 0.7975 - val_prc: 0.2488 - lr: 2.5000e-05
+Epoch 9/30
+11212/11212 [==============================] - ETA: 0s - loss: 0.0234 - tp: 48352.0000 - fp: 4660.0000 - tn: 1186243.0000 - fn: 16489.0000 - Binary Accuracy: 0.9832 - Categorical Accuracy: 0.4166 - precision: 0.9121 - recall: 0.7457 - auc: 0.9889 - prc: 0.9090
+Epoch 9: saving model to ./checkpoint/model.09-0.7886.h5
+11212/11212 [==============================] - 1296s 115ms/step - loss: 0.0234 - tp: 48352.0000 - fp: 4660.0000 - tn: 1186243.0000 - fn: 16489.0000 - Binary Accuracy: 0.9832 - Categorical Accuracy: 0.4166 - precision: 0.9121 - recall: 0.7457 - auc: 0.9889 - prc: 0.9090 - val_loss: 0.2493 - val_tp: 3990.0000 - val_fp: 8035.0000 - val_tn: 289566.0000 - val_fn: 12345.0000 - val_Binary Accuracy: 0.9351 - val_Categorical Accuracy: 0.2428 - val_precision: 0.3318 - val_recall: 0.2443 - val_auc: 0.7886 - val_prc: 0.2413 - lr: 2.5000e-05
+Epoch 10/30
+11212/11212 [==============================] - ETA: 0s - loss: 0.0194 - tp: 51200.0000 - fp: 3997.0000 - tn: 1186906.0000 - fn: 13641.0000 - Binary Accuracy: 0.9860 - Categorical Accuracy: 0.4172 - precision: 0.9276 - recall: 0.7896 - auc: 0.9922 - prc: 0.9345
+Epoch 10: ReduceLROnPlateau reducing learning rate to 1.249999968422344e-05.
+
+Epoch 10: saving model to ./checkpoint/model.10-0.7802.h5
+11212/11212 [==============================] - 1304s 116ms/step - loss: 0.0194 - tp: 51200.0000 - fp: 3997.0000 - tn: 1186906.0000 - fn: 13641.0000 - Binary Accuracy: 0.9860 - Categorical Accuracy: 0.4172 - precision: 0.9276 - recall: 0.7896 - auc: 0.9922 - prc: 0.9345 - val_loss: 0.2630 - val_tp: 4035.0000 - val_fp: 8223.0000 - val_tn: 289378.0000 - val_fn: 12300.0000 - val_Binary Accuracy: 0.9346 - val_Categorical Accuracy: 0.2058 - val_precision: 0.3292 - val_recall: 0.2470 - val_auc: 0.7802 - val_prc: 0.2418 - lr: 2.5000e-05
+Epoch 11/30
+11212/11212 [==============================] - ETA: 0s - loss: 0.0157 - tp: 54293.0000 - fp: 3179.0000 - tn: 1187724.0000 - fn: 10548.0000 - Binary Accuracy: 0.9891 - Categorical Accuracy: 0.4170 - precision: 0.9447 - recall: 0.8373 - auc: 0.9952 - prc: 0.9576
+Epoch 11: saving model to ./checkpoint/model.11-0.7717.h5
+11212/11212 [==============================] - 1307s 116ms/step - loss: 0.0157 - tp: 54293.0000 - fp: 3179.0000 - tn: 1187724.0000 - fn: 10548.0000 - Binary Accuracy: 0.9891 - Categorical Accuracy: 0.4170 - precision: 0.9447 - recall: 0.8373 - auc: 0.9952 - prc: 0.9576 - val_loss: 0.2733 - val_tp: 4020.0000 - val_fp: 8617.0000 - val_tn: 288984.0000 - val_fn: 12315.0000 - val_Binary Accuracy: 0.9333 - val_Categorical Accuracy: 0.2209 - val_precision: 0.3181 - val_recall: 0.2461 - val_auc: 0.7717 - val_prc: 0.2334 - lr: 1.2500e-05
+Epoch 12/30
+ 7467/11212 [==================>...........] - ETA: 6:45 - loss: 0.0133 - tp: 34405.0000 - fp: 1654.0000 - tn: 794432.0000 - fn: 5813.0000 - Binary Accuracy: 0.9911 - Categorical Accuracy: 0.4104 - precision: 0.9541 - recall: 0.8555 - auc: 0.9960 - prc: 0.9648
