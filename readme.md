@@ -128,8 +128,27 @@ optimizer:Adam , Loss: Custom Loss BCE, Class weighs: yes
 
 
 
+3. SgdFocalLossAlpha75
 
 
+| Pathology | CheXNet | SgdfocalLossAlpha75|
+| ----------- | ----------- |---------- |
+| Atelectasis | 0,8094 | 0,811|
+| Cardiomegaly | 0,9248 | 0,885|
+| Effusion | 0,8638 | 0,784|
+| Infiltration | 0,7345 | 0,911|
+| Mass | 0,8676 | 0,885|
+| Nodule | 0,7802 | 0,927|
+| Pneumonia | 0,768 | 0,726|
+| Pneumothorax | 0,8887 | 0,875|
+| Consolidation | 0,7901 | 0,643|
+| Edema | 0,8878 | 0.737 | 0,830|
+| Emphysema | 0,9371 | 0,762|
+| Fibrosis | 0,8047 | 0,787|
+| Pleural Thickening | 0,8062 | 0,762|
+| Hernia | 0,9164 | 0,895|
 
-
+<img src="./trainings and results\TrainNoClassWeightsSGDFocalLossA75\SGGFocalLoss075Ep4CM.png" alt="Confusion Matrix" />
+### Some Examples
+<img src="./trainings and results\TrainNoClassWeightsSGDFocalLossA75\AtelEp4.png" alt="Confusion Matrix" />
 
